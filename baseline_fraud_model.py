@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -16,7 +18,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 
-DATA_PATH = "data/Cleaned_data_1995_2018.csv"
+BASE_DIR = Path(__file__).resolve().parent
+DATA_PATH = BASE_DIR / "data" / "Cleaned_data_1995_2018.csv"
 FEATURE_COLUMNS = [
     "Financial_Year",
     "sale",
@@ -35,13 +38,26 @@ TARGET_COLUMN = "target_fraud"
 RANDOM_STATE = 42
 
 
-def load_dataset(path: str) -> pd.DataFrame:
+def validate_columns(df: pd.DataFrame) -> None:
+    required_columns = set(FEATURE_COLUMNS + ["AAER_ID"])
+    missing_columns = sorted(required_columns.difference(df.columns))
+    if missing_columns:
+        missing_text = ", ".join(missing_columns)
+        raise ValueError(f"Dataset is missing required columns: {missing_text}")
+
+
+def load_dataset(path: Path) -> pd.DataFrame:
     df = pd.read_csv(path)
-    df[TARGET_COLUMN] = df["AAER_ID"].notna().astype(int)
-    df["Financial_Year"] = (
-        df["Financial_Year"].astype(str).str.replace("FY", "", regex=False).astype(int)
+    validate_columns(df)
+    model_df = df[FEATURE_COLUMNS].copy()
+    model_df["Financial_Year"] = (
+        model_df["Financial_Year"]
+        .astype(str)
+        .str.replace("FY", "", regex=False)
+        .astype(int)
     )
-    return df[FEATURE_COLUMNS + [TARGET_COLUMN]].copy()
+    model_df[TARGET_COLUMN] = df["AAER_ID"].notna().astype(int).to_numpy()
+    return model_df
 
 
 def split_dataset(df: pd.DataFrame):
@@ -118,8 +134,11 @@ def evaluate_model(name, model, X_train, y_train, X_val, y_val):
 
 
 def print_results(metrics_df: pd.DataFrame):
+    sorted_metrics = metrics_df.sort_values(
+        ["average_precision", "f1", "recall"], ascending=False
+    )
     print("\nValidation metrics")
-    print(metrics_df.sort_values("average_precision", ascending=False).round(4).to_string(index=False))
+    print(sorted_metrics.round(4).to_string(index=False))
 
 
 def select_best_threshold(y_true, y_scores):
@@ -174,7 +193,9 @@ def main():
     metrics_df = pd.DataFrame(metrics)
     print_results(metrics_df)
 
-    best_row = metrics_df.sort_values("average_precision", ascending=False).iloc[0]
+    best_row = metrics_df.sort_values(
+        ["average_precision", "f1", "recall"], ascending=False
+    ).iloc[0]
     best_name = best_row["model"]
     evaluate_best_model(
         best_name,
