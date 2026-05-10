@@ -13,7 +13,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import ParameterGrid, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -104,7 +104,10 @@ def build_models():
                     "model",
                     RandomForestClassifier(
                         n_estimators=300,
+                        max_depth=None,
+                        min_samples_split=2,
                         min_samples_leaf=5,
+                        max_features="sqrt",
                         class_weight="balanced_subsample",
                         random_state=RANDOM_STATE,
                         n_jobs=-1,
@@ -113,6 +116,54 @@ def build_models():
             ]
         ),
     }
+
+
+def optimize_random_forest(X_train, y_train, X_val, y_val):
+    param_grid = {
+        "n_estimators": [200],
+        "max_depth": [None, 12],
+        "min_samples_split": [2],
+        "min_samples_leaf": [1, 5],
+        "max_features": ["sqrt"],
+        "class_weight": ["balanced_subsample"],
+    }
+
+    best_model = None
+    best_params = None
+    best_metrics = None
+
+    for params in ParameterGrid(param_grid):
+        candidate_model = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="median")),
+                (
+                    "model",
+                    RandomForestClassifier(
+                        random_state=RANDOM_STATE,
+                        n_jobs=-1,
+                        **params,
+                    ),
+                ),
+            ]
+        )
+        candidate_metrics, trained_candidate = evaluate_model(
+            "random_forest_tuned",
+            candidate_model,
+            X_train,
+            y_train,
+            X_val,
+            y_val,
+        )
+
+        if (
+            best_metrics is None
+            or candidate_metrics["average_precision"] > best_metrics["average_precision"]
+        ):
+            best_model = trained_candidate
+            best_params = params
+            best_metrics = candidate_metrics
+
+    return best_model, best_params, best_metrics
 
 
 def evaluate_model(name, model, X_train, y_train, X_val, y_val):
@@ -183,12 +234,21 @@ def main():
     trained_models = {}
     metrics = []
 
-    for name, model in build_models().items():
-        model_metrics, trained_model = evaluate_model(
-            name, model, X_train, y_train, X_val, y_val
-        )
-        metrics.append(model_metrics)
-        trained_models[name] = trained_model
+    logistic_model = build_models()["logistic_regression"]
+    logistic_metrics, trained_logistic = evaluate_model(
+        "logistic_regression", logistic_model, X_train, y_train, X_val, y_val
+    )
+    metrics.append(logistic_metrics)
+    trained_models["logistic_regression"] = trained_logistic
+
+    tuned_rf, best_rf_params, best_rf_metrics = optimize_random_forest(
+        X_train, y_train, X_val, y_val
+    )
+    print("\nRandom Forest tuning")
+    print(f"Best validation average_precision: {best_rf_metrics['average_precision']:.4f}")
+    print(f"Best params: {best_rf_params}")
+    metrics.append(best_rf_metrics)
+    trained_models["random_forest_tuned"] = tuned_rf
 
     metrics_df = pd.DataFrame(metrics)
     print_results(metrics_df)

@@ -1,3 +1,7 @@
 data/Cleaned_data_1995_2018.csv
 data/Cleaned_data_1995_2018.csv
 data/Cleaned_data_1995_2018.csv
+data/fraud_financial.db
+.matplotlib-cache/
+.DS_Store
+__pycache__/
