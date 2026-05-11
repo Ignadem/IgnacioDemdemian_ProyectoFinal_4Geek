@@ -1,0 +1,174 @@
+{
+  "model_name": "Random Forest (tuned)",
+  "model_path": "/Users/igna/git/ProjectoFinal_4Geeks/models/fraud_risk_model.joblib",
+  "feature_columns": [
+    "Financial_Year",
+    "sale",
+    "ni",
+    "at",
+    "lt",
+    "che",
+    "rect",
+    "invt",
+    "cogs",
+    "txt",
+    "xint",
+    "prcc_f"
+  ],
+  "target_definition": "1 if AAER_ID exists, 0 if AAER_ID is missing in the source dataset",
+  "dataset_rows": 87974,
+  "dataset_positive_ratio": 0.006536022006501921,
+  "random_state": 42,
+  "feature_statistics": {
+    "Financial_Year": {
+      "min": 1995.0,
+      "max": 2018.0,
+      "median": 2006.0,
+      "mean": 2006.5369768340647,
+      "p25": 2001.0,
+      "p75": 2012.0
+    },
+    "sale": {
+      "min": -810648.0,
+      "max": 38401885.16,
+      "median": 443.43399999999997,
+      "mean": 7719.004743367472,
+      "p25": 112.29725,
+      "p75": 1716.1396200000001
+    },
+    "ni": {
+      "min": -853252.0,
+      "max": 1559024.799,
+      "median": 18.479,
+      "mean": 426.7946219738786,
+      "p25": -2.3396725,
+      "p75": 95.44749999999999
+    },
+    "at": {
+      "min": 0.09944,
+      "max": 113154728.8,
+      "median": 836.141,
+      "mean": 20322.047273017706,
+      "p25": 229.6655,
+      "p75": 3116.07475
+    },
+    "lt": {
+      "min": 0.09974,
+      "max": 97689728.08,
+      "median": 470.157245,
+      "mean": 15516.042704733443,
+      "p25": 85.04725,
+      "p75": 2067.5072499999997
+    },
+    "che": {
+      "min": -19.175,
+      "max": 56203374.13,
+      "median": 62.269999999999996,
+      "mean": 4421.331036325732,
+      "p25": 17.0,
+      "p75": 219.285
+    },
+    "rect": {
+      "min": -0.056,
+      "max": 7248250.679,
+      "median": 54.395,
+      "mean": 1429.330805669857,
+      "p25": 9.80921,
+      "p75": 232.2995
+    },
+    "invt": {
+      "min": 0.0,
+      "max": 2040552.0,
+      "median": 11.231,
+      "mean": 597.1976247602701,
+      "p25": 0.0,
+      "p75": 105.76725
+    },
+    "cogs": {
+      "min": -1424.0,
+      "max": 28480940.62,
+      "median": 211.865,
+      "mean": 4967.556624886898,
+      "p25": 32.2565,
+      "p75": 984.08375
+    },
+    "txt": {
+      "min": -34831.0,
+      "max": 413061.2186,
+      "median": 7.5245,
+      "mean": 193.66941009627843,
+      "p25": 0.018,
+      "p75": 40.2
+    },
+    "xint": {
+      "min": -1033361.448,
+      "max": 546.0,
+      "median": -4.5015,
+      "mean": -159.0716277638848,
+      "p25": -36.0,
+      "p75": -0.06848
+    },
+    "prcc_f": {
+      "min": 0.0,
+      "max": 2070000000000.0,
+      "median": 6.125,
+      "mean": 48428940.63421602,
+      "p25": 0.0,
+      "p75": 22.55
+    }
+  },
+  "validation_metrics": {
+    "logistic_regression": {
+      "average_precision": 0.009279864954890903,
+      "roc_auc": 0.6439062139676794,
+      "recall": 0.6511627906976745,
+      "precision": 0.011740041928721174,
+      "f1": 0.023064250411861616,
+      "threshold": 0.5319589369202384,
+      "confusion_matrix": [
+        8396,
+        4714,
+        30,
+        56
+      ]
+    },
+    "random_forest_tuned": {
+      "params": {
+        "class_weight": "balanced_subsample",
+        "max_depth": null,
+        "max_features": "sqrt",
+        "min_samples_leaf": 5,
+        "n_estimators": 200
+      },
+      "average_precision": 0.09797516837115385,
+      "roc_auc": 0.8660222979085733,
+      "recall": 0.18604651162790697,
+      "precision": 0.22857142857142856,
+      "f1": 0.20512820512820512,
+      "threshold": 0.18692598691684023,
+      "confusion_matrix": [
+        13056,
+        54,
+        70,
+        16
+      ]
+    }
+  },
+  "selected_model_threshold": 0.18692598691684023,
+  "test_metrics": {
+    "average_precision": 0.06877699911962115,
+    "roc_auc": 0.8431477243834224,
+    "recall": 0.10344827586206896,
+    "precision": 0.14754098360655737,
+    "f1": 0.12162162162162163,
+    "threshold": 0.18692598691684023,
+    "confusion_matrix": [
+      13058,
+      52,
+      78,
+      9
+    ]
+  },
+  "review_priority_disclaimer": "Fraud-risk scores indicate review priority only and are not legal or audit conclusions.",
+  "run_timestamp": "2026-05-10 22:04:36"
+}

@@ -19,12 +19,14 @@ Help a non-technical evaluator understand how financial statement data can be us
 
 ### Active
 
-- [ ] Document the Kaggle dataset source and acquisition method.
-- [ ] Load the dataset into SQLite and run SQL analyses that support the business story.
-- [ ] Refine the EDA into six focused sections for presentation.
-- [ ] Train and save the final tuned Random Forest model with joblib.
-- [ ] Build a Streamlit app that accepts 12 manual financial inputs and returns a fraud-risk score/category.
-- [ ] Produce project documentation and presentation-ready explanation.
+### Completed
+
+- ✓ Documented Kaggle dataset source and acquisition method.
+- ✓ Loaded dataset into SQLite and ran SQL analyses that support the business story.
+- ✓ Refined EDA into six focused sections for presentation.
+- ✓ Trained and saved the final tuned Random Forest model with joblib.
+- ✓ Built a Streamlit app with manual 12-feature input and risk score/category output.
+- ✓ Produced project documentation and presentation-ready explanation.
 
 ### Out of Scope
 
@@ -58,20 +60,20 @@ Help a non-technical evaluator understand how financial statement data can be us
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Frame product as fraud-risk prioritization | The model cannot prove fraud; it ranks similarity to known fraud cases | — Pending |
-| Use Kaggle dataset source `abdulmalekalsalemi/new-fraud-financial-dataset` | Provides a documentable public source for the CSV | — Pending |
-| Use Kaggle API/CLI as acquisition method | More reproducible than a manual file-only story | — Pending |
-| Use SQLite for data storage and SQL analysis | Satisfies database requirement without server complexity | — Pending |
-| Keep 12 current model features | Easier to explain and defend in a course presentation | — Pending |
-| Use tuned Random Forest as final model | Current validation metrics beat Logistic Regression | — Pending |
-| Keep Logistic Regression as baseline comparison | Provides a simple model comparison story | — Pending |
-| Use Average Precision as primary metric | Better than accuracy for rare fraud labels and ranking use case | — Pending |
-| Report recall, precision, F1, ROC AUC, confusion matrix | Explains tradeoffs between false alerts and missed fraud | — Pending |
-| Save final model with joblib | Common scikit-learn deployment practice and simpler app runtime | — Pending |
-| Build manual-input Streamlit app | Simple to demo and aligned with 12-feature model | — Pending |
-| Use Low/Medium/High risk thresholds of 10% and 30% | Practical first-version review-priority categories | — Pending |
-| Use six SQL analyses | Covers database requirement with useful analytical insight | — Pending |
-| Use six focused EDA sections | Complete enough for rubric without overbuilding | — Pending |
+| Frame product as fraud-risk prioritization | The model cannot prove fraud; it ranks similarity to known fraud cases | Completed |
+| Use Kaggle dataset source `abdulmalekalsalemi/new-fraud-financial-dataset` | Provides a documentable public source for the CSV | Completed |
+| Use Kaggle API/CLI as acquisition method | More reproducible than a manual file-only story | Completed |
+| Use SQLite for data storage and SQL analysis | Satisfies database requirement without server complexity | Completed |
+| Keep 12 current model features | Easier to explain and defend in a course presentation | Completed |
+| Use tuned Random Forest as final model | Current validation metrics beat Logistic Regression | Completed |
+| Keep Logistic Regression as baseline comparison | Provides a simple model comparison story | Completed |
+| Use Average Precision as primary metric | Better than accuracy for rare fraud labels and ranking use case | Completed |
+| Report recall, precision, F1, ROC AUC, confusion matrix | Explains tradeoffs between false alerts and missed fraud | Completed |
+| Save final model with joblib | Common scikit-learn deployment practice and simpler app runtime | Completed |
+| Build manual-input Streamlit app | Simple to demo and aligned with 12-feature model | Completed |
+| Use Low/Medium/High risk thresholds of 10% and 30% | Practical first-version review-priority categories | Completed |
+| Use six SQL analyses | Covers database requirement with useful analytical insight | Completed |
+| Use six focused EDA sections | Complete enough for rubric without overbuilding | Completed |
 
 ## Evolution
 
@@ -91,4 +93,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state.
 
 ---
-*Last updated: 2026-05-10 after GSD initialization*
+*Last updated: 2026-05-10 after end-to-end implementation*
