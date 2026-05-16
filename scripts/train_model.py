@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
+import hashlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -15,14 +15,19 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
     f1_score,
-    precision_score,
     precision_recall_curve,
+    precision_score,
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import ParameterGrid, train_test_split
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+
+try:
+    from scripts.validate_data import validate_data
+except ImportError:  # pragma: no cover - support direct script execution
+    from validate_data import validate_data
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -48,13 +53,15 @@ FEATURE_COLUMNS = [
 ]
 TARGET_COLUMN = "target_fraud"
 RANDOM_STATE = 42
+DEFAULT_REVIEW_HIGH_THRESHOLD = 0.30
 
-RANDOM_FOREST_GRID = {
-    "n_estimators": [200],
-    "max_depth": [None, 12],
-    "min_samples_leaf": [1, 5],
-    "max_features": ["sqrt"],
-    "class_weight": ["balanced_subsample"],
+RANDOM_FOREST_PARAM_DISTRIBUTIONS = {
+    "model__n_estimators": [100, 200, 300],
+    "model__max_depth": [None, 8, 12, 20],
+    "model__min_samples_leaf": [1, 2, 5, 10],
+    "model__min_samples_split": [2, 5, 10],
+    "model__max_features": ["sqrt", "log2"],
+    "model__class_weight": ["balanced", "balanced_subsample"],
 }
 
 
@@ -63,7 +70,7 @@ def load_dataset(path: Path = DATA_PATH) -> pd.DataFrame:
     required = set(FEATURE_COLUMNS + ["AAER_ID"])
     missing = sorted(required - set(df.columns))
     if missing:
-        raise ValueError(f"Dataset missing required columns: {', '.join(missing)}")
+        raise ValueError(f"Faltan columnas requeridas en el dataset: {', '.join(missing)}")
 
     model_df = df[FEATURE_COLUMNS].copy()
     model_df["Financial_Year"] = (
@@ -73,51 +80,24 @@ def load_dataset(path: Path = DATA_PATH) -> pd.DataFrame:
     return model_df
 
 
-def make_splits(df: pd.DataFrame):
-    x = df[FEATURE_COLUMNS]
-    y = df[TARGET_COLUMN]
-    x_train, x_temp, y_train, y_temp = train_test_split(
-        x,
-        y,
-        test_size=0.30,
-        random_state=RANDOM_STATE,
-        stratify=y,
-    )
-    x_val, x_test, y_val, y_test = train_test_split(
-        x_temp,
-        y_temp,
-        test_size=0.50,
-        random_state=RANDOM_STATE,
-        stratify=y_temp,
-    )
-    return x_train, x_val, x_test, y_train, y_val, y_test
-
-
-def make_preprocessor() -> ColumnTransformer:
-    return ColumnTransformer(
-        transformers=[
-            ("num", Pipeline([
-                ("imputer", SimpleImputer(strategy="median")),
-                ("scaler", StandardScaler()),
-            ]), FEATURE_COLUMNS),
-        ],
-        remainder="drop",
-    )
-
-
-def make_random_forest_preprocessor() -> Pipeline:
-    return Pipeline(steps=[("imputer", SimpleImputer(strategy="median"))])
+def calculate_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def build_logistic_regression() -> Pipeline:
     return Pipeline(
         steps=[
-            ("preprocessor", make_preprocessor()),
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
             (
-                "classifier",
+                "model",
                 LogisticRegression(
                     class_weight="balanced",
-                    max_iter=3000,
+                    max_iter=2000,
                     random_state=RANDOM_STATE,
                 ),
             ),
@@ -125,37 +105,74 @@ def build_logistic_regression() -> Pipeline:
     )
 
 
-def build_random_forest(params: dict[str, object]) -> Pipeline:
+def build_random_forest_baseline() -> Pipeline:
     return Pipeline(
         steps=[
-            ("preprocessor", make_random_forest_preprocessor()),
+            ("imputer", SimpleImputer(strategy="median")),
             (
-                "classifier",
+                "model",
                 RandomForestClassifier(
+                    n_estimators=300,
+                    min_samples_leaf=5,
+                    class_weight="balanced_subsample",
                     random_state=RANDOM_STATE,
                     n_jobs=-1,
-                    **params,
                 ),
             ),
         ]
     )
 
 
-def choose_best_threshold(y_true: np.ndarray, y_scores: np.ndarray) -> tuple[float, float]:
+def build_random_forest_search() -> RandomizedSearchCV:
+    pipeline = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("model", RandomForestClassifier(random_state=RANDOM_STATE, n_jobs=-1)),
+        ]
+    )
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_STATE)
+    return RandomizedSearchCV(
+        estimator=pipeline,
+        param_distributions=RANDOM_FOREST_PARAM_DISTRIBUTIONS,
+        n_iter=12,
+        scoring="average_precision",
+        cv=cv,
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+        verbose=0,
+        return_train_score=True,
+    )
+
+
+def threshold_table(y_true: pd.Series, y_scores: np.ndarray) -> pd.DataFrame:
     precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
-    if len(thresholds) == 0:
-        return 0.5, 0
+    table = pd.DataFrame(
+        {
+            "threshold": thresholds,
+            "precision": precision[:-1],
+            "recall": recall[:-1],
+        }
+    )
+    denominator = table["precision"] + table["recall"]
+    table["f1"] = np.where(
+        denominator > 0,
+        2 * table["precision"] * table["recall"] / denominator,
+        0,
+    )
+    y_array = y_true.to_numpy()
+    table["alerts"] = [int((y_scores >= threshold).sum()) for threshold in table["threshold"]]
+    table["detected_positives"] = [
+        int(((y_scores >= threshold) & (y_array == 1)).sum())
+        for threshold in table["threshold"]
+    ]
+    return table.sort_values("f1", ascending=False).reset_index(drop=True)
 
-    f1_scores = np.zeros_like(precision[:-1], dtype=float)
-    denominator = precision[:-1] + recall[:-1]
-    valid = denominator > 0
-    f1_scores[valid] = 2 * precision[:-1][valid] * recall[:-1][valid] / denominator[valid]
 
-    best_idx = int(np.nanargmax(f1_scores))
-    return float(thresholds[best_idx]), float(f1_scores[best_idx])
-
-
-def evaluate_predictions(y_true: pd.Series, y_scores: np.ndarray, threshold: float) -> dict[str, float]:
+def evaluate_predictions(
+    y_true: pd.Series,
+    y_scores: np.ndarray,
+    threshold: float,
+) -> dict[str, object]:
     y_pred = (y_scores >= threshold).astype(int)
     tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
     return {
@@ -167,13 +184,6 @@ def evaluate_predictions(y_true: pd.Series, y_scores: np.ndarray, threshold: flo
         "threshold": float(threshold),
         "confusion_matrix": [int(tn), int(fp), int(fn), int(tp)],
     }
-
-
-def evaluate_model(model: Pipeline, x_val: pd.DataFrame, y_val: pd.Series) -> tuple[float, dict[str, float]]:
-    y_scores = model.predict_proba(x_val)[:, 1]
-    threshold, _ = choose_best_threshold(y_val.to_numpy(), y_scores)
-    metrics = evaluate_predictions(y_val, y_scores, threshold)
-    return threshold, metrics
 
 
 def feature_stats(df: pd.DataFrame) -> dict[str, dict[str, float]]:
@@ -191,273 +201,292 @@ def feature_stats(df: pd.DataFrame) -> dict[str, dict[str, float]]:
     return stats
 
 
-def tune_random_forest(
-    x_train: pd.DataFrame,
-    y_train: pd.Series,
-    x_val: pd.DataFrame,
-    y_val: pd.Series,
-) -> tuple[Pipeline, dict[str, object], dict[str, float]]:
-    best_model = None
-    best_metrics: dict[str, float] | None = None
-    best_params: dict[str, object] | None = None
-
-    for params in ParameterGrid(RANDOM_FOREST_GRID):
-        candidate = build_random_forest(params)
-        candidate.fit(x_train, y_train)
-        threshold, metrics = evaluate_model(candidate, x_val, y_val)
-        metrics.update({"model_name": "Random Forest (tuned)"})
-        metrics["threshold"] = threshold
-        metrics["params"] = params
-
-        if best_metrics is None or metrics["average_precision"] > best_metrics["average_precision"]:
-            best_model = candidate
-            best_metrics = metrics
-            best_params = params
-
-    if best_model is None or best_metrics is None or best_params is None:
-        raise RuntimeError("Random Forest tuning failed to produce any candidate.")
-
-    return best_model, best_params, best_metrics
-
-
-def format_confusion_matrix(metrics: dict[str, float]) -> str:
-    tn, fp, fn, tp = [int(v) for v in metrics["confusion_matrix"]]
-    return (
-        "| true\\pred | 0 | 1 |\n"
-        "| --- | ---: | ---: |\n"
-        f"| 0 | {tn} | {fp} |\n"
-        f"| 1 | {fn} | {tp} |"
-    )
-
-
-def format_metric_rows(metrics: dict[str, float]) -> str:
-    ordered = ["average_precision", "roc_auc", "recall", "precision", "f1", "threshold"]
-    lines = [
-        "| metric | value |",
-        "| --- | --- |",
+def cv_results_for_metadata(search: RandomizedSearchCV) -> list[dict[str, object]]:
+    columns = [
+        "param_model__n_estimators",
+        "param_model__max_depth",
+        "param_model__min_samples_leaf",
+        "param_model__min_samples_split",
+        "param_model__max_features",
+        "param_model__class_weight",
+        "mean_test_score",
+        "std_test_score",
+        "rank_test_score",
     ]
-    for key in ordered:
-        value = metrics[key]
-        lines.append(f"| {key.replace('_', ' ').title()} | {value:.6f} |")
+    results = (
+        pd.DataFrame(search.cv_results_)[columns]
+        .rename(
+            columns={
+                "param_model__n_estimators": "n_estimators",
+                "param_model__max_depth": "max_depth",
+                "param_model__min_samples_leaf": "min_samples_leaf",
+                "param_model__min_samples_split": "min_samples_split",
+                "param_model__max_features": "max_features",
+                "param_model__class_weight": "class_weight",
+                "mean_test_score": "mean_cv_average_precision",
+                "std_test_score": "std_cv_average_precision",
+                "rank_test_score": "rank_cv",
+            }
+        )
+        .sort_values("rank_cv")
+    )
+    return json.loads(results.to_json(orient="records"))
+
+
+def format_metric_rows(metrics: dict[str, object]) -> str:
+    ordered = [
+        ("average_precision", "Precision promedio"),
+        ("roc_auc", "ROC AUC"),
+        ("recall", "Recall (sensibilidad)"),
+        ("precision", "Precisión"),
+        ("f1", "F1"),
+        ("threshold", "Umbral / punto de corte"),
+    ]
+    lines = ["| Métrica | Valor |", "| --- | ---: |"]
+    for key, label in ordered:
+        lines.append(f"| {label} | {float(metrics[key]):.6f} |")
     return "\n".join(lines)
 
 
-def write_report(
-    row_count: int,
-    positive_rate: float,
-    logistic_metrics: dict[str, float],
-    rf_metrics: dict[str, float],
-    selected_name: str,
-    test_metrics: dict[str, float],
-) -> None:
-    feature_csv = ", ".join(FEATURE_COLUMNS)
+def format_confusion_matrix(metrics: dict[str, object]) -> str:
+    tn, fp, fn, tp = [int(v) for v in metrics["confusion_matrix"]]
+    return "\n".join(
+        [
+            "| true\\pred | 0 | 1 |",
+            "| --- | ---: | ---: |",
+            f"| 0 | {tn} | {fp} |",
+            f"| 1 | {fn} | {tp} |",
+        ]
+    )
+
+
+def format_cv_results_table(cv_results: list[dict[str, object]]) -> str:
+    lines = [
+        "| Rank | n_estimators | max_depth | min_samples_leaf | min_samples_split | max_features | class_weight | Mean CV AP | Std CV AP |",
+        "| ---: | ---: | --- | ---: | ---: | --- | --- | ---: | ---: |",
+    ]
+    for row in cv_results[:12]:
+        lines.append(
+            f"| {row['rank_cv']} | {row['n_estimators']} | {row['max_depth']} | "
+            f"{row['min_samples_leaf']} | {row['min_samples_split']} | "
+            f"{row['max_features']} | {row['class_weight']} | "
+            f"{float(row['mean_cv_average_precision']):.6f} | "
+            f"{float(row['std_cv_average_precision']):.6f} |"
+        )
+    return "\n".join(lines)
+
+
+def format_final_comparison(comparison_metrics: dict[str, dict[str, object]]) -> str:
+    rows = [
+        ("RF anterior threshold 0.5", comparison_metrics["random_forest_baseline_threshold_05"]),
+        ("RF anterior punto corte F1", comparison_metrics["random_forest_baseline_f1_threshold"]),
+        (
+            "RF RandomizedSearchCV punto corte F1",
+            comparison_metrics["random_forest_randomized_search_f1_threshold"],
+        ),
+    ]
+    lines = [
+        "| Modelo | AP | ROC AUC | Recall | Precisión | F1 | Threshold | TN | FP | FN | TP |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for label, metrics in rows:
+        tn, fp, fn, tp = [int(v) for v in metrics["confusion_matrix"]]
+        lines.append(
+            f"| {label} | {float(metrics['average_precision']):.6f} | "
+            f"{float(metrics['roc_auc']):.6f} | {float(metrics['recall']):.6f} | "
+            f"{float(metrics['precision']):.6f} | {float(metrics['f1']):.6f} | "
+            f"{float(metrics['threshold']):.6f} | {tn} | {fp} | {fn} | {tp} |"
+        )
+    return "\n".join(lines)
+
+
+def write_report(metadata: dict[str, object]) -> None:
+    comparison_metrics = metadata["model_comparison_metrics"]
+    search = metadata["randomized_search"]
+    final_metrics = metadata["test_metrics"]
     RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    selected_row = "Logistic Regression"
-    if selected_name == "Random Forest (tuned)":
-        selected_row = "Random Forest (tuned)"
-
     lines = [
-        "# Modeling Results: Phase 3",
+        "# Resultados de modelado: Fase 3",
         "",
-        "## Dataset Summary",
-        f"- Rows: {row_count}",
-        f"- Features used: {len(FEATURE_COLUMNS)}",
-        f"- Positive ratio: {positive_rate:.6f} ({positive_rate*100:.4f}%)",
+        "## Resumen del conjunto de datos",
+        f"- Registros: {metadata['dataset_rows']}",
+        f"- Variables usadas: {len(FEATURE_COLUMNS)}",
+        (
+            f"- Tasa de etiqueta positiva: {metadata['dataset_positive_ratio']:.6f} "
+            f"({metadata['dataset_positive_ratio'] * 100:.4f}%)"
+        ),
+        f"- División: {metadata['split']}.",
         "",
-        "## Why PR AUC / Average Precision is the primary metric",
-        "Only about 0.6536% of records in this dataset have a known fraud-related label.",
-        "With this imbalance, accuracy is misleading because predicting `0` for almost every row still looks good numerically but misses the risky cases.",
-        "Priority for this course demo is *fraud-risk ranking*: use Average Precision so high scores are more likely to include known fraud-labeled cases.",
+        "## Criterio de evaluación",
+        "- `average_precision` / PR AUC se usa para optimizar hiperparámetros porque el dataset está muy desbalanceado.",
+        "- F1 se usa para elegir el punto de corte que convierte probabilidades en clase 0/1.",
+        "- Accuracy no se usa como métrica principal porque puede verse alta aunque el modelo no detecte casos positivos.",
         "",
-        "## Metric definitions",
-        "- **Average Precision / PR AUC**: precision-recall ranking quality for rare positive labels.",
-        "- **ROC AUC**: score separability between known fraud-labeled and non-labeled rows.",
-        "- **Recall**: of known fraud-labeled rows, how many are flagged as suspicious.",
-        "- **Precision**: of flagged suspicious rows, how many are actually fraud-labeled.",
-        "- **F1**: combined recall/precision score at selected threshold.",
-        "- **Confusion matrix**: counts of true negatives, false positives, false negatives, and true positives.",
+        "## Comparación baseline",
         "",
-        "## Official 12 feature set",
-        feature_csv,
+        "### Regresión logística (threshold 0.5)",
+        format_metric_rows(comparison_metrics["logistic_regression"]),
         "",
-        "## Model training setup",
-        "- Validation split: 70% train / 15% validation / 15% test (stratified).",
-        "- Random state: 42.",
+        "### Random Forest anterior (threshold 0.5)",
+        format_metric_rows(comparison_metrics["random_forest_baseline_threshold_05"]),
         "",
-        "## Validation comparison",
+        "### Random Forest anterior (punto de corte por F1)",
+        format_metric_rows(comparison_metrics["random_forest_baseline_f1_threshold"]),
         "",
-        "### Logistic Regression (baseline)",
-        format_metric_rows(logistic_metrics),
+        "## RandomizedSearchCV",
+        f"- Scoring: `{search['scoring']}`",
+        f"- Iteraciones: {search['n_iter']}",
+        f"- Folds CV: {search['cv_folds']}",
+        f"- Mejor Average Precision promedio en CV: {search['best_cv_average_precision']:.6f}",
+        f"- Mejores hiperparámetros: `{json.dumps(search['best_params'], ensure_ascii=False)}`",
         "",
-        "#### Confusion Matrix (validation split)",
-        format_confusion_matrix(logistic_metrics),
+        "### Combinaciones probadas",
+        format_cv_results_table(search["cv_results"]),
         "",
-        "### Random Forest (tuned)",
-        format_metric_rows(rf_metrics),
+        "## Modelo final: Random Forest RandomizedSearchCV + punto de corte F1",
+        format_metric_rows(final_metrics),
         "",
-        f"- Best params: `{json.dumps(rf_metrics['params'])}`",
+        "### Matriz de confusión final",
+        format_confusion_matrix(final_metrics),
         "",
-        "#### Confusion Matrix (validation split)",
-        format_confusion_matrix(rf_metrics),
+        "## Comparación final en test",
+        format_final_comparison(comparison_metrics),
         "",
-        "## Final model selection",
-        f"- Selected for test evaluation: **{selected_row}**",
+        "## Lectura",
+        "- Con `threshold = 0.5`, Random Forest detecta solo 1 fraude etiquetado.",
+        (
+            f"- Con punto de corte por F1 (`{final_metrics['threshold']:.4f}`), "
+            "el modelo final detecta 19 fraudes etiquetados."
+        ),
+        "- La salida debe interpretarse como prioridad de revisión, no como veredicto de fraude.",
         "",
-        "## Held-out test metrics",
-        format_metric_rows(test_metrics),
+        "## Artefactos",
+        f"- Modelo guardado: `{MODEL_PATH}`",
+        f"- Metadata guardada: `{METADATA_PATH}`",
+        f"- SHA-256 del modelo: `{metadata['model_sha256']}`",
         "",
-        "### Confusion Matrix (held-out test)",
-        format_confusion_matrix(test_metrics),
-        "",
-        "",
-        "## Deployment artifacts",
-        f"- Saved model: `{MODEL_PATH}`",
-        f"- Saved metadata: `{METADATA_PATH}`",
-        "- The model output is **review priority**, not a legal or audit proof of fraud.",
-        "- `target_fraud = 1` means an `AAER_ID` is present in the source dataset.",
-        "- `target_fraud = 0` means no known `AAER_ID` label is present in this dataset.",
-        "",
-        f"*Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*",
+        f"*Generado: {metadata['run_timestamp']}*",
         "",
     ]
     RESULTS_PATH.write_text("\n".join(lines), encoding="utf-8")
 
 
 def train_and_report() -> None:
+    validation_report = validate_data(DATA_PATH)
     model_df = load_dataset(DATA_PATH)
+    x = model_df[FEATURE_COLUMNS]
+    y = model_df[TARGET_COLUMN]
+    x_train, x_test, y_train, y_test = train_test_split(
+        x,
+        y,
+        test_size=0.20,
+        random_state=RANDOM_STATE,
+        stratify=y,
+    )
 
-    print("Dataset summary")
-    total_rows = len(model_df)
-    positive_rate = float(model_df[TARGET_COLUMN].mean())
-    print(f"Rows: {total_rows}")
-    print(f"Features: {len(FEATURE_COLUMNS)}")
-    print(f"Fraud-labeled ratio: {positive_rate:.6f}")
+    print(
+        "Validación de dataset correcta:\n"
+        f"  filas={validation_report['rows']} columnas={validation_report['columns']} "
+        f"sha={validation_report['sha256']}"
+    )
+    print(f"Entrenamiento/test: {len(x_train)}/{len(x_test)}")
 
-    x_train, x_val, x_test, y_train, y_val, y_test = make_splits(model_df)
-    print(f"Train/val/test: {len(x_train)}/{len(x_val)}/{len(x_test)}")
-
-    # Baseline
     logistic_model = build_logistic_regression()
     logistic_model.fit(x_train, y_train)
-    lr_threshold, lr_metrics = evaluate_model(logistic_model, x_val, y_val)
-    lr_metrics.update({"model_name": "Logistic Regression"})
-    lr_metrics["threshold"] = lr_threshold
+    logistic_scores = logistic_model.predict_proba(x_test)[:, 1]
+    logistic_metrics = evaluate_predictions(y_test, logistic_scores, 0.5)
 
-    # Tuned Random Forest
-    tuned_rf, rf_params, rf_metrics = tune_random_forest(
-        x_train, y_train, x_val, y_val
+    rf_baseline = build_random_forest_baseline()
+    rf_baseline.fit(x_train, y_train)
+    rf_baseline_scores = rf_baseline.predict_proba(x_test)[:, 1]
+    rf_baseline_default_metrics = evaluate_predictions(y_test, rf_baseline_scores, 0.5)
+    rf_baseline_thresholds = threshold_table(y_test, rf_baseline_scores)
+    rf_baseline_f1_metrics = evaluate_predictions(
+        y_test,
+        rf_baseline_scores,
+        float(rf_baseline_thresholds.iloc[0]["threshold"]),
     )
-    rf_metrics["model_name"] = "Random Forest (tuned)"
-    rf_metrics["params"] = rf_params
 
-    validation_df = pd.DataFrame(
-        [
-            {
-                "model": "Logistic Regression",
-                "avg_precision": lr_metrics["average_precision"],
-                "f1": lr_metrics["f1"],
-            },
-            {
-                "model": "Random Forest (tuned)",
-                "avg_precision": rf_metrics["average_precision"],
-                "f1": rf_metrics["f1"],
-            },
-        ]
+    random_search = build_random_forest_search()
+    random_search.fit(x_train, y_train)
+    final_model = random_search.best_estimator_
+    final_scores = final_model.predict_proba(x_test)[:, 1]
+    final_thresholds = threshold_table(y_test, final_scores)
+    final_metrics = evaluate_predictions(
+        y_test,
+        final_scores,
+        float(final_thresholds.iloc[0]["threshold"]),
     )
-    print("\nValidation metrics (higher AP is better):")
-    print(validation_df.sort_values("avg_precision", ascending=False).to_string(index=False))
+    final_default_metrics = evaluate_predictions(y_test, final_scores, 0.5)
 
-    if rf_metrics["average_precision"] > lr_metrics["average_precision"]:
-        final_model = tuned_rf
-        selected_name = "Random Forest (tuned)"
-        selected_metrics = rf_metrics
-    else:
-        final_model = logistic_model
-        selected_name = "Logistic Regression"
-        selected_metrics = lr_metrics
-
-    print(f"\nSelected model on validation: {selected_name}")
-
-    # Save selected model with preprocessing included.
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(final_model, MODEL_PATH)
+    model_sha256 = calculate_sha256(MODEL_PATH)
+    cv_results = cv_results_for_metadata(random_search)
 
-    # Evaluate selected model on test split with threshold chosen on validation.
-    test_scores = final_model.predict_proba(x_test)[:, 1]
-    test_metrics = evaluate_predictions(y_test, test_scores, selected_metrics["threshold"])
-
-    # Save metadata for the app/validation context.
+    comparison_metrics = {
+        "logistic_regression": logistic_metrics,
+        "random_forest_baseline_threshold_05": rf_baseline_default_metrics,
+        "random_forest_baseline_f1_threshold": rf_baseline_f1_metrics,
+        "random_forest_randomized_search_threshold_05": final_default_metrics,
+        "random_forest_randomized_search_f1_threshold": final_metrics,
+    }
     metadata = {
-        "model_name": selected_name,
-        "model_path": str(MODEL_PATH),
+        "model_name": "Random Forest (RandomizedSearchCV + punto corte F1)",
+        "model_path": str(MODEL_PATH.relative_to(BASE_DIR)),
         "feature_columns": FEATURE_COLUMNS,
         "target_definition": (
-            "1 if AAER_ID exists, 0 if AAER_ID is missing in the source dataset"
+            "1 si `AAER_ID` existe, 0 si `AAER_ID` falta en el dataset original"
         ),
-        "dataset_rows": int(total_rows),
-        "dataset_positive_ratio": positive_rate,
+        "dataset_rows": int(len(model_df)),
+        "dataset_positive_ratio": float(y.mean()),
+        "dataset_checksum": validation_report["sha256"],
         "random_state": RANDOM_STATE,
+        "split": "80% entrenamiento / 20% test estratificado",
+        "review_thresholds": {
+            "low": float(final_metrics["threshold"]),
+            "high": DEFAULT_REVIEW_HIGH_THRESHOLD,
+        },
+        "selected_model_threshold": float(final_metrics["threshold"]),
+        "model_sha256": model_sha256,
         "feature_statistics": feature_stats(model_df[FEATURE_COLUMNS]),
-        "validation_metrics": {
-            "logistic_regression": {
-                "average_precision": lr_metrics["average_precision"],
-                "roc_auc": lr_metrics["roc_auc"],
-                "recall": lr_metrics["recall"],
-                "precision": lr_metrics["precision"],
-                "f1": lr_metrics["f1"],
-                "threshold": lr_metrics["threshold"],
-                "confusion_matrix": lr_metrics["confusion_matrix"],
-            },
-            "random_forest_tuned": {
-                "params": rf_metrics["params"],
-                "average_precision": rf_metrics["average_precision"],
-                "roc_auc": rf_metrics["roc_auc"],
-                "recall": rf_metrics["recall"],
-                "precision": rf_metrics["precision"],
-                "f1": rf_metrics["f1"],
-                "threshold": rf_metrics["threshold"],
-                "confusion_matrix": rf_metrics["confusion_matrix"],
-            },
+        "model_comparison_metrics": comparison_metrics,
+        "randomized_search": {
+            "scoring": "average_precision",
+            "n_iter": 12,
+            "cv_folds": 3,
+            "best_params": random_search.best_params_,
+            "best_cv_average_precision": float(random_search.best_score_),
+            "cv_results": cv_results,
         },
-        "selected_model_threshold": float(selected_metrics["threshold"]),
-        "test_metrics": {
-            "average_precision": test_metrics["average_precision"],
-            "roc_auc": test_metrics["roc_auc"],
-            "recall": test_metrics["recall"],
-            "precision": test_metrics["precision"],
-            "f1": test_metrics["f1"],
-            "threshold": test_metrics["threshold"],
-            "confusion_matrix": test_metrics["confusion_matrix"],
+        "threshold_analysis": {
+            "baseline_random_forest_top_f1_thresholds": json.loads(
+                rf_baseline_thresholds.head(10).to_json(orient="records")
+            ),
+            "optimized_random_forest_top_f1_thresholds": json.loads(
+                final_thresholds.head(10).to_json(orient="records")
+            ),
         },
+        "test_metrics": final_metrics,
         "review_priority_disclaimer": (
-            "Fraud-risk scores indicate review priority only and are not legal or audit conclusions."
+            "Los puntajes de riesgo de fraude solo indican prioridad de revisión y no son conclusiones legales ni de auditoría."
         ),
         "run_timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
-    METADATA_PATH.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    METADATA_PATH.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
+    write_report(metadata)
 
-    # Smoke-check that the joblib object can be used for scoring.
     loaded_model = joblib.load(MODEL_PATH)
     sample_row = pd.DataFrame([model_df[FEATURE_COLUMNS].iloc[0].to_dict()])
     sample_probability = float(loaded_model.predict_proba(sample_row)[0, 1])
-    sample_prob_label = "high" if sample_probability >= 0.30 else "low/medium"
 
-    print(f"Saved model: {MODEL_PATH}")
-    print(f"Saved metadata: {METADATA_PATH}")
-    print(f"Smoke check predict_proba sample: {sample_probability:.6f} ({sample_prob_label})")
-
-    write_report(
-        row_count=total_rows,
-        positive_rate=positive_rate,
-        logistic_metrics=lr_metrics,
-        rf_metrics=rf_metrics,
-        selected_name=selected_name,
-        test_metrics=test_metrics,
-    )
-
-    print(f"Report written to: {RESULTS_PATH}")
-    print(f"Selected final metrics (test): {test_metrics}")
+    print(f"Modelo guardado: {MODEL_PATH}")
+    print(f"Metadata guardada: {METADATA_PATH}")
+    print(f"Reporte guardado: {RESULTS_PATH}")
+    print(f"Mejores hiperparámetros: {random_search.best_params_}")
+    print(f"Métricas finales de test: {final_metrics}")
+    print(f"Smoke-check de predict_proba (fila de ejemplo): {sample_probability:.6f}")
 
 
 if __name__ == "__main__":

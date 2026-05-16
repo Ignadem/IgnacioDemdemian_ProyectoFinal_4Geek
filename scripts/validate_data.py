@@ -38,23 +38,23 @@ def calculate_sha256(path: Path) -> str:
 
 def validate_data(path: Path = DEFAULT_DATA_PATH) -> dict[str, object]:
     if not path.exists():
-        raise FileNotFoundError(f"Dataset not found: {path}")
+        raise FileNotFoundError(f"Dataset no encontrado: {path}")
 
     checksum = calculate_sha256(path)
     if checksum != EXPECTED_SHA256:
         raise ValueError(
-            "Unexpected dataset checksum. "
-            f"Expected {EXPECTED_SHA256}, got {checksum}."
+            "Checksum del dataset inesperado. "
+            f"Esperado {EXPECTED_SHA256}, se obtuvo {checksum}."
         )
 
     df = pd.read_csv(path)
     row_count = len(df)
     if row_count != EXPECTED_ROWS:
-        raise ValueError(f"Unexpected row count. Expected {EXPECTED_ROWS}, got {row_count}.")
+        raise ValueError(f"Número de filas inesperado. Esperadas {EXPECTED_ROWS}, se obtuvieron {row_count}.")
 
     missing_columns = sorted(set(REQUIRED_COLUMNS).difference(df.columns))
     if missing_columns:
-        raise ValueError(f"Dataset is missing required columns: {', '.join(missing_columns)}")
+        raise ValueError(f"Faltan columnas requeridas en el dataset: {', '.join(missing_columns)}")
 
     return {
         "path": path,
@@ -66,23 +66,23 @@ def validate_data(path: Path = DEFAULT_DATA_PATH) -> dict[str, object]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Validate the local fraud dataset CSV.")
+    parser = argparse.ArgumentParser(description="Validar el CSV local del dataset de fraude.")
     parser.add_argument(
         "path",
         nargs="?",
         type=Path,
         default=DEFAULT_DATA_PATH,
-        help=f"CSV path to validate. Defaults to {DEFAULT_DATA_PATH}.",
+        help=f"Ruta del CSV a validar. Por defecto: {DEFAULT_DATA_PATH}.",
     )
     args = parser.parse_args()
 
     result = validate_data(args.path)
-    print("Dataset validation passed")
+    print("Validación del dataset correcta")
     print(f"Path: {result['path']}")
-    print(f"Rows: {result['rows']}")
-    print(f"Columns: {result['columns']}")
+    print(f"Filas: {result['rows']}")
+    print(f"Columnas: {result['columns']}")
     print(f"SHA-256: {result['sha256']}")
-    print(f"Required columns: {', '.join(result['required_columns'])}")
+    print(f"Columnas requeridas: {', '.join(result['required_columns'])}")
 
 
 if __name__ == "__main__":

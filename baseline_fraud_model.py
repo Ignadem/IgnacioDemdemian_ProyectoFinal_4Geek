@@ -43,7 +43,7 @@ def validate_columns(df: pd.DataFrame) -> None:
     missing_columns = sorted(required_columns.difference(df.columns))
     if missing_columns:
         missing_text = ", ".join(missing_columns)
-        raise ValueError(f"Dataset is missing required columns: {missing_text}")
+        raise ValueError(f"Al dataset le faltan columnas requeridas: {missing_text}")
 
 
 def load_dataset(path: Path) -> pd.DataFrame:
@@ -188,7 +188,7 @@ def print_results(metrics_df: pd.DataFrame):
     sorted_metrics = metrics_df.sort_values(
         ["average_precision", "f1", "recall"], ascending=False
     )
-    print("\nValidation metrics")
+    print("\nMétricas de validación")
     print(sorted_metrics.round(4).to_string(index=False))
 
 
@@ -214,55 +214,18 @@ def evaluate_best_model(best_name, best_model, threshold, X_test, y_test):
     y_scores = best_model.predict_proba(X_test)[:, 1]
     y_pred = (y_scores >= threshold).astype(int)
 
-    print(f"\nBest model on validation: {best_name}")
-    print(f"Selected threshold: {threshold:.4f}")
-    print(f"Test average_precision: {average_precision_score(y_test, y_scores):.4f}")
-    print(f"Test roc_auc: {roc_auc_score(y_test, y_scores):.4f}")
-    print("\nTest classification report")
+    print(f"\nMejor modelo en validación: {best_name}")
+    print(f"Umbral seleccionado: {threshold:.4f}")
+    print(f"Average Precision en test: {average_precision_score(y_test, y_scores):.4f}")
+    print(f"ROC AUC en test: {roc_auc_score(y_test, y_scores):.4f}")
+    print("\nReporte de clasificación en test")
     print(classification_report(y_test, y_pred, digits=4, zero_division=0))
 
 
 def main():
-    df = load_dataset(DATA_PATH)
-    X_train, X_val, X_test, y_train, y_val, y_test = split_dataset(df)
-
-    print("Dataset summary")
-    print(f"Rows: {len(df)}")
-    print(f"Features: {len(FEATURE_COLUMNS)}")
-    print(f"Positive class ratio: {df[TARGET_COLUMN].mean():.4%}")
-
-    trained_models = {}
-    metrics = []
-
-    logistic_model = build_models()["logistic_regression"]
-    logistic_metrics, trained_logistic = evaluate_model(
-        "logistic_regression", logistic_model, X_train, y_train, X_val, y_val
-    )
-    metrics.append(logistic_metrics)
-    trained_models["logistic_regression"] = trained_logistic
-
-    tuned_rf, best_rf_params, best_rf_metrics = optimize_random_forest(
-        X_train, y_train, X_val, y_val
-    )
-    print("\nRandom Forest tuning")
-    print(f"Best validation average_precision: {best_rf_metrics['average_precision']:.4f}")
-    print(f"Best params: {best_rf_params}")
-    metrics.append(best_rf_metrics)
-    trained_models["random_forest_tuned"] = tuned_rf
-
-    metrics_df = pd.DataFrame(metrics)
-    print_results(metrics_df)
-
-    best_row = metrics_df.sort_values(
-        ["average_precision", "f1", "recall"], ascending=False
-    ).iloc[0]
-    best_name = best_row["model"]
-    evaluate_best_model(
-        best_name,
-        trained_models[best_name],
-        best_row["threshold"],
-        X_test,
-        y_test,
+    raise SystemExit(
+        "baseline_fraud_model.py está obsoleto y no se debe usar. "
+        "Ejecutá `python scripts/train_model.py` para el flujo de entrenamiento de producción."
     )
 
 

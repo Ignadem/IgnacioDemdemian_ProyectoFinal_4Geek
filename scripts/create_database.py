@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from validate_data import DEFAULT_DATA_PATH, REQUIRED_COLUMNS, validate_data
+try:
+    from scripts.validate_data import DEFAULT_DATA_PATH, REQUIRED_COLUMNS, validate_data
+except ImportError:  # pragma: no cover - support direct script execution
+    from validate_data import DEFAULT_DATA_PATH, REQUIRED_COLUMNS, validate_data
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
@@ -37,11 +40,13 @@ def create_database(
 
     missing_columns = sorted(set(REQUIRED_COLUMNS).difference(columns))
     if missing_columns:
-        raise ValueError(f"Database table is missing required columns: {missing_columns}")
+        raise ValueError(
+            f"La tabla de la base de datos no tiene columnas requeridas: {missing_columns}"
+        )
 
     if row_count != validation["rows"]:
         raise ValueError(
-            f"Database row count mismatch. Expected {validation['rows']}, got {row_count}."
+            f"Cantidad de filas en la BD no coincide. Se esperaban {validation['rows']}, se obtuvieron {row_count}."
         )
 
     return {
@@ -54,11 +59,11 @@ def create_database(
 
 def main() -> None:
     result = create_database()
-    print("SQLite database created")
-    print(f"Database: {result['database']}")
-    print(f"Table: {result['table']}")
-    print(f"Rows loaded: {result['rows']}")
-    print(f"Columns loaded: {result['columns']}")
+    print("Base SQLite creada")
+    print(f"Base: {result['database']}")
+    print(f"Tabla: {result['table']}")
+    print(f"Filas cargadas: {result['rows']}")
+    print(f"Columnas cargadas: {result['columns']}")
 
 
 if __name__ == "__main__":

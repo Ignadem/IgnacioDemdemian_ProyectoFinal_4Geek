@@ -1,23 +1,23 @@
-# Phase 1 SQL Results
+# Resultados SQL de Fase 1
 
-Generated from `data/fraud_financial.db` using `scripts/run_sql_analysis.py`.
+Generado desde `data/fraud_financial.db` usando `scripts/run_sql_analysis.py`.
 
-## Total Records
+## Total de registros
 
-| total_records |
+| total_registros |
 | --- |
 | 87974 |
 
-## Fraud vs Non-Fraud Count
+## Conteo de fraude vs no fraude
 
-| target_fraud | records |
+| etiqueta_fraude | registros |
 | --- | --- |
 | 0 | 87399 |
 | 1 | 575 |
 
-## Fraud Rate by Financial Year
+## Tasa de fraude por año fiscal
 
-| Financial_Year | total_records | fraud_cases | fraud_rate_percent |
+| ejercicio_fiscal | total_registros | casos_fraude | tasa_fraude_porcentaje |
 | --- | --- | --- | --- |
 | FY1995 | 2568 | 11 | 0.4283 |
 | FY1996 | 2927 | 12 | 0.41 |
@@ -44,23 +44,23 @@ Generated from `data/fraud_financial.db` using `scripts/run_sql_analysis.py`.
 | FY2017 | 3402 | 5 | 0.147 |
 | FY2018 | 3357 | 1 | 0.0298 |
 
-## Average Key Financial Values by Fraud Label
+## Valores financieros clave promedio por etiqueta de fraude
 
-| target_fraud | records | avg_sales | avg_net_income | avg_assets | avg_liabilities | avg_cash |
+| etiqueta_fraude | registros | promedio_ventas | promedio_ingreso_neto | promedio_activos | promedio_pasivos | promedio_efectivo |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.0 | 87399.0 | 7739.0 | 428.34 | 20335.17 | 15512.79 | 4433.98 |
 | 1.0 | 575.0 | 4679.09 | 192.53 | 18328.12 | 16010.56 | 2499.1 |
 
-## Receivables-to-Sales Ratio by Fraud Label
+## Ratio cuentas por cobrar / ventas por etiqueta de fraude
 
-| target_fraud | records | avg_receivables | avg_sales | avg_receivables_to_sales_ratio |
+| etiqueta_fraude | registros | promedio_cuentas_por_cobrar | promedio_ventas | razon_cuentas_por_cobrar_ventas |
 | --- | --- | --- | --- | --- |
 | 0.0 | 87399.0 | 1413.32 | 7739.0 | 0.2931 |
 | 1.0 | 575.0 | 3862.2 | 4679.09 | 0.9426 |
 
-## Liabilities-to-Assets Ratio by Fraud Label
+## Ratio pasivos / activos por etiqueta de fraude
 
-| target_fraud | records | avg_liabilities | avg_assets | avg_liabilities_to_assets_ratio |
+| etiqueta_fraude | registros | promedio_pasivos | promedio_activos | razon_pasivos_activos |
 | --- | --- | --- | --- | --- |
 | 0.0 | 87399.0 | 15512.79 | 20335.17 | 0.5968 |
 | 1.0 | 575.0 | 16010.56 | 18328.12 | 0.5298 |

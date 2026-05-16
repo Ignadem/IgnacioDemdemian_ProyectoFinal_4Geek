@@ -1,6 +1,6 @@
 {
-  "model_name": "Random Forest (tuned)",
-  "model_path": "/Users/igna/git/ProjectoFinal_4Geeks/models/fraud_risk_model.joblib",
+  "model_name": "Random Forest (RandomizedSearchCV + punto corte F1)",
+  "model_path": "models/fraud_risk_model.joblib",
   "feature_columns": [
     "Financial_Year",
     "sale",
@@ -15,10 +15,18 @@
     "xint",
     "prcc_f"
   ],
-  "target_definition": "1 if AAER_ID exists, 0 if AAER_ID is missing in the source dataset",
+  "target_definition": "1 si `AAER_ID` existe, 0 si `AAER_ID` falta en el dataset original",
   "dataset_rows": 87974,
   "dataset_positive_ratio": 0.006536022006501921,
+  "dataset_checksum": "c279c7d662a286b6b18e2b9d01595b4683f4cc8e427749272626de04ea5d748c",
   "random_state": 42,
+  "split": "80% entrenamiento / 20% test estratificado",
+  "review_thresholds": {
+    "low": 0.21003179757838145,
+    "high": 0.3
+  },
+  "selected_model_threshold": 0.21003179757838145,
+  "model_sha256": "82bdc6f70de92f07dca20b9975d33decb23e10a12fff3e6ad61359a89c2a9316",
   "feature_statistics": {
     "Financial_Year": {
       "min": 1995.0,
@@ -117,58 +125,406 @@
       "p75": 22.55
     }
   },
-  "validation_metrics": {
+  "model_comparison_metrics": {
     "logistic_regression": {
-      "average_precision": 0.009279864954890903,
-      "roc_auc": 0.6439062139676794,
-      "recall": 0.6511627906976745,
-      "precision": 0.011740041928721174,
-      "f1": 0.023064250411861616,
-      "threshold": 0.5319589369202384,
+      "average_precision": 0.009729398926832507,
+      "roc_auc": 0.6626905283056412,
+      "recall": 0.7217391304347827,
+      "precision": 0.0113264192139738,
+      "f1": 0.022302834878409245,
+      "threshold": 0.5,
       "confusion_matrix": [
-        8396,
-        4714,
-        30,
-        56
+        10235,
+        7245,
+        32,
+        83
       ]
     },
-    "random_forest_tuned": {
-      "params": {
-        "class_weight": "balanced_subsample",
-        "max_depth": null,
-        "max_features": "sqrt",
-        "min_samples_leaf": 5,
-        "n_estimators": 200
-      },
-      "average_precision": 0.09797516837115385,
-      "roc_auc": 0.8660222979085733,
-      "recall": 0.18604651162790697,
-      "precision": 0.22857142857142856,
-      "f1": 0.20512820512820512,
-      "threshold": 0.18692598691684023,
+    "random_forest_baseline_threshold_05": {
+      "average_precision": 0.10456229121034834,
+      "roc_auc": 0.8671184459257786,
+      "recall": 0.008695652173913044,
+      "precision": 0.1111111111111111,
+      "f1": 0.016129032258064516,
+      "threshold": 0.5,
       "confusion_matrix": [
-        13056,
-        54,
-        70,
-        16
+        17472,
+        8,
+        114,
+        1
+      ]
+    },
+    "random_forest_baseline_f1_threshold": {
+      "average_precision": 0.10456229121034834,
+      "roc_auc": 0.8671184459257786,
+      "recall": 0.16521739130434782,
+      "precision": 0.25333333333333335,
+      "f1": 0.2,
+      "threshold": 0.20678656818763172,
+      "confusion_matrix": [
+        17424,
+        56,
+        96,
+        19
+      ]
+    },
+    "random_forest_randomized_search_threshold_05": {
+      "average_precision": 0.10171034812230359,
+      "roc_auc": 0.8627644015520843,
+      "recall": 0.008695652173913044,
+      "precision": 0.1111111111111111,
+      "f1": 0.016129032258064516,
+      "threshold": 0.5,
+      "confusion_matrix": [
+        17472,
+        8,
+        114,
+        1
+      ]
+    },
+    "random_forest_randomized_search_f1_threshold": {
+      "average_precision": 0.10171034812230359,
+      "roc_auc": 0.8627644015520843,
+      "recall": 0.16521739130434782,
+      "precision": 0.2638888888888889,
+      "f1": 0.20320855614973263,
+      "threshold": 0.21003179757838145,
+      "confusion_matrix": [
+        17427,
+        53,
+        96,
+        19
       ]
     }
   },
-  "selected_model_threshold": 0.18692598691684023,
-  "test_metrics": {
-    "average_precision": 0.06877699911962115,
-    "roc_auc": 0.8431477243834224,
-    "recall": 0.10344827586206896,
-    "precision": 0.14754098360655737,
-    "f1": 0.12162162162162163,
-    "threshold": 0.18692598691684023,
-    "confusion_matrix": [
-      13058,
-      52,
-      78,
-      9
+  "randomized_search": {
+    "scoring": "average_precision",
+    "n_iter": 12,
+    "cv_folds": 3,
+    "best_params": {
+      "model__n_estimators": 200,
+      "model__min_samples_split": 5,
+      "model__min_samples_leaf": 5,
+      "model__max_features": "log2",
+      "model__max_depth": null,
+      "model__class_weight": "balanced_subsample"
+    },
+    "best_cv_average_precision": 0.07640511670162109,
+    "cv_results": [
+      {
+        "n_estimators": 200,
+        "max_depth": null,
+        "min_samples_leaf": 5,
+        "min_samples_split": 5,
+        "max_features": "log2",
+        "class_weight": "balanced_subsample",
+        "mean_cv_average_precision": 0.0764051167,
+        "std_cv_average_precision": 0.0168812166,
+        "rank_cv": 1
+      },
+      {
+        "n_estimators": 300,
+        "max_depth": null,
+        "min_samples_leaf": 10,
+        "min_samples_split": 2,
+        "max_features": "sqrt",
+        "class_weight": "balanced",
+        "mean_cv_average_precision": 0.0719787655,
+        "std_cv_average_precision": 0.019357183,
+        "rank_cv": 2
+      },
+      {
+        "n_estimators": 200,
+        "max_depth": 20,
+        "min_samples_leaf": 1,
+        "min_samples_split": 10,
+        "max_features": "log2",
+        "class_weight": "balanced",
+        "mean_cv_average_precision": 0.0554512559,
+        "std_cv_average_precision": 0.003254207,
+        "rank_cv": 3
+      },
+      {
+        "n_estimators": 100,
+        "max_depth": 20,
+        "min_samples_leaf": 5,
+        "min_samples_split": 2,
+        "max_features": "sqrt",
+        "class_weight": "balanced",
+        "mean_cv_average_precision": 0.0528608198,
+        "std_cv_average_precision": 0.0042216448,
+        "rank_cv": 4
+      },
+      {
+        "n_estimators": 300,
+        "max_depth": 12,
+        "min_samples_leaf": 1,
+        "min_samples_split": 2,
+        "max_features": "log2",
+        "class_weight": "balanced_subsample",
+        "mean_cv_average_precision": 0.0403608608,
+        "std_cv_average_precision": 0.0051638413,
+        "rank_cv": 5
+      },
+      {
+        "n_estimators": 100,
+        "max_depth": 12,
+        "min_samples_leaf": 10,
+        "min_samples_split": 5,
+        "max_features": "log2",
+        "class_weight": "balanced_subsample",
+        "mean_cv_average_precision": 0.0392318412,
+        "std_cv_average_precision": 0.0060905367,
+        "rank_cv": 6
+      },
+      {
+        "n_estimators": 100,
+        "max_depth": 12,
+        "min_samples_leaf": 2,
+        "min_samples_split": 10,
+        "max_features": "sqrt",
+        "class_weight": "balanced_subsample",
+        "mean_cv_average_precision": 0.0358409719,
+        "std_cv_average_precision": 0.003614509,
+        "rank_cv": 7
+      },
+      {
+        "n_estimators": 200,
+        "max_depth": 8,
+        "min_samples_leaf": 2,
+        "min_samples_split": 2,
+        "max_features": "log2",
+        "class_weight": "balanced",
+        "mean_cv_average_precision": 0.0347397359,
+        "std_cv_average_precision": 0.0048957549,
+        "rank_cv": 8
+      },
+      {
+        "n_estimators": 200,
+        "max_depth": 8,
+        "min_samples_leaf": 2,
+        "min_samples_split": 2,
+        "max_features": "sqrt",
+        "class_weight": "balanced",
+        "mean_cv_average_precision": 0.0347397359,
+        "std_cv_average_precision": 0.0048957549,
+        "rank_cv": 8
+      },
+      {
+        "n_estimators": 300,
+        "max_depth": 8,
+        "min_samples_leaf": 5,
+        "min_samples_split": 2,
+        "max_features": "sqrt",
+        "class_weight": "balanced_subsample",
+        "mean_cv_average_precision": 0.0338743199,
+        "std_cv_average_precision": 0.0030973106,
+        "rank_cv": 10
+      },
+      {
+        "n_estimators": 200,
+        "max_depth": 8,
+        "min_samples_leaf": 1,
+        "min_samples_split": 5,
+        "max_features": "log2",
+        "class_weight": "balanced_subsample",
+        "mean_cv_average_precision": 0.0318387744,
+        "std_cv_average_precision": 0.0026185942,
+        "rank_cv": 11
+      },
+      {
+        "n_estimators": 100,
+        "max_depth": 8,
+        "min_samples_leaf": 1,
+        "min_samples_split": 10,
+        "max_features": "log2",
+        "class_weight": "balanced_subsample",
+        "mean_cv_average_precision": 0.0315557598,
+        "std_cv_average_precision": 0.0042164617,
+        "rank_cv": 12
+      }
     ]
   },
-  "review_priority_disclaimer": "Fraud-risk scores indicate review priority only and are not legal or audit conclusions.",
-  "run_timestamp": "2026-05-10 22:04:36"
+  "threshold_analysis": {
+    "baseline_random_forest_top_f1_thresholds": [
+      {
+        "threshold": 0.2067865682,
+        "precision": 0.2533333333,
+        "recall": 0.1652173913,
+        "f1": 0.2,
+        "alerts": 75,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2032068803,
+        "precision": 0.25,
+        "recall": 0.1652173913,
+        "f1": 0.1989528796,
+        "alerts": 76,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2100234644,
+        "precision": 0.2727272727,
+        "recall": 0.1565217391,
+        "f1": 0.1988950276,
+        "alerts": 66,
+        "detected_positives": 18
+      },
+      {
+        "threshold": 0.202387938,
+        "precision": 0.2467532468,
+        "recall": 0.1652173913,
+        "f1": 0.1979166667,
+        "alerts": 77,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2099295431,
+        "precision": 0.2686567164,
+        "recall": 0.1565217391,
+        "f1": 0.1978021978,
+        "alerts": 67,
+        "detected_positives": 18
+      },
+      {
+        "threshold": 0.2001282702,
+        "precision": 0.2435897436,
+        "recall": 0.1652173913,
+        "f1": 0.1968911917,
+        "alerts": 78,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2090427106,
+        "precision": 0.2647058824,
+        "recall": 0.1565217391,
+        "f1": 0.1967213115,
+        "alerts": 68,
+        "detected_positives": 18
+      },
+      {
+        "threshold": 0.1997281444,
+        "precision": 0.2405063291,
+        "recall": 0.1652173913,
+        "f1": 0.1958762887,
+        "alerts": 79,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2088401258,
+        "precision": 0.2608695652,
+        "recall": 0.1565217391,
+        "f1": 0.1956521739,
+        "alerts": 69,
+        "detected_positives": 18
+      },
+      {
+        "threshold": 0.1968394832,
+        "precision": 0.2375,
+        "recall": 0.1652173913,
+        "f1": 0.1948717949,
+        "alerts": 80,
+        "detected_positives": 19
+      }
+    ],
+    "optimized_random_forest_top_f1_thresholds": [
+      {
+        "threshold": 0.2100317976,
+        "precision": 0.2638888889,
+        "recall": 0.1652173913,
+        "f1": 0.2032085561,
+        "alerts": 72,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2092073234,
+        "precision": 0.2602739726,
+        "recall": 0.1652173913,
+        "f1": 0.2021276596,
+        "alerts": 73,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2056214051,
+        "precision": 0.2567567568,
+        "recall": 0.1652173913,
+        "f1": 0.2010582011,
+        "alerts": 74,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2147250788,
+        "precision": 0.2769230769,
+        "recall": 0.1565217391,
+        "f1": 0.2,
+        "alerts": 65,
+        "detected_positives": 18
+      },
+      {
+        "threshold": 0.2055945235,
+        "precision": 0.2533333333,
+        "recall": 0.1652173913,
+        "f1": 0.2,
+        "alerts": 75,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2054245812,
+        "precision": 0.25,
+        "recall": 0.1652173913,
+        "f1": 0.1989528796,
+        "alerts": 76,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2134862261,
+        "precision": 0.2727272727,
+        "recall": 0.1565217391,
+        "f1": 0.1988950276,
+        "alerts": 66,
+        "detected_positives": 18
+      },
+      {
+        "threshold": 0.2024573554,
+        "precision": 0.2467532468,
+        "recall": 0.1652173913,
+        "f1": 0.1979166667,
+        "alerts": 77,
+        "detected_positives": 19
+      },
+      {
+        "threshold": 0.2126130709,
+        "precision": 0.2686567164,
+        "recall": 0.1565217391,
+        "f1": 0.1978021978,
+        "alerts": 67,
+        "detected_positives": 18
+      },
+      {
+        "threshold": 0.2018927651,
+        "precision": 0.2435897436,
+        "recall": 0.1652173913,
+        "f1": 0.1968911917,
+        "alerts": 78,
+        "detected_positives": 19
+      }
+    ]
+  },
+  "test_metrics": {
+    "average_precision": 0.10171034812230359,
+    "roc_auc": 0.8627644015520843,
+    "recall": 0.16521739130434782,
+    "precision": 0.2638888888888889,
+    "f1": 0.20320855614973263,
+    "threshold": 0.21003179757838145,
+    "confusion_matrix": [
+      17427,
+      53,
+      96,
+      19
+    ]
+  },
+  "review_priority_disclaimer": "Los puntajes de riesgo de fraude solo indican prioridad de revisión y no son conclusiones legales ni de auditoría.",
+  "run_timestamp": "2026-05-16 18:35:05"
 }

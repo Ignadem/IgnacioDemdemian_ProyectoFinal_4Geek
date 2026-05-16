@@ -1,91 +1,102 @@
-# Modeling Results: Phase 3
+# Resultados de modelado: Fase 3
 
-## Dataset Summary
-- Rows: 87974
-- Features used: 12
-- Positive ratio: 0.006536 (0.6536%)
+## Resumen del conjunto de datos
+- Registros: 87974
+- Variables usadas: 12
+- Tasa de etiqueta positiva: 0.006536 (0.6536%)
+- División: 80% entrenamiento / 20% test estratificado.
 
-## Why PR AUC / Average Precision is the primary metric
-Only about 0.6536% of records in this dataset have a known fraud-related label.
-With this imbalance, accuracy is misleading because predicting `0` for almost every row still looks good numerically but misses the risky cases.
-Priority for this course demo is *fraud-risk ranking*: use Average Precision so high scores are more likely to include known fraud-labeled cases.
+## Criterio de evaluación
+- `average_precision` / PR AUC se usa para optimizar hiperparámetros porque el dataset está muy desbalanceado.
+- F1 se usa para elegir el punto de corte que convierte probabilidades en clase 0/1.
+- Accuracy no se usa como métrica principal porque puede verse alta aunque el modelo no detecte casos positivos.
 
-## Metric definitions
-- **Average Precision / PR AUC**: precision-recall ranking quality for rare positive labels.
-- **ROC AUC**: score separability between known fraud-labeled and non-labeled rows.
-- **Recall**: of known fraud-labeled rows, how many are flagged as suspicious.
-- **Precision**: of flagged suspicious rows, how many are actually fraud-labeled.
-- **F1**: combined recall/precision score at selected threshold.
-- **Confusion matrix**: counts of true negatives, false positives, false negatives, and true positives.
+## Comparación baseline
 
-## Official 12 feature set
-Financial_Year, sale, ni, at, lt, che, rect, invt, cogs, txt, xint, prcc_f
+### Regresión logística (threshold 0.5)
+| Métrica | Valor |
+| --- | ---: |
+| Precision promedio | 0.009729 |
+| ROC AUC | 0.662691 |
+| Recall (sensibilidad) | 0.721739 |
+| Precisión | 0.011326 |
+| F1 | 0.022303 |
+| Umbral / punto de corte | 0.500000 |
 
-## Model training setup
-- Validation split: 70% train / 15% validation / 15% test (stratified).
-- Random state: 42.
+### Random Forest anterior (threshold 0.5)
+| Métrica | Valor |
+| --- | ---: |
+| Precision promedio | 0.104562 |
+| ROC AUC | 0.867118 |
+| Recall (sensibilidad) | 0.008696 |
+| Precisión | 0.111111 |
+| F1 | 0.016129 |
+| Umbral / punto de corte | 0.500000 |
 
-## Validation comparison
+### Random Forest anterior (punto de corte por F1)
+| Métrica | Valor |
+| --- | ---: |
+| Precision promedio | 0.104562 |
+| ROC AUC | 0.867118 |
+| Recall (sensibilidad) | 0.165217 |
+| Precisión | 0.253333 |
+| F1 | 0.200000 |
+| Umbral / punto de corte | 0.206787 |
 
-### Logistic Regression (baseline)
-| metric | value |
-| --- | --- |
-| Average Precision | 0.009280 |
-| Roc Auc | 0.643906 |
-| Recall | 0.651163 |
-| Precision | 0.011740 |
-| F1 | 0.023064 |
-| Threshold | 0.531959 |
+## RandomizedSearchCV
+- Scoring: `average_precision`
+- Iteraciones: 12
+- Folds CV: 3
+- Mejor Average Precision promedio en CV: 0.076405
+- Mejores hiperparámetros: `{"model__n_estimators": 200, "model__min_samples_split": 5, "model__min_samples_leaf": 5, "model__max_features": "log2", "model__max_depth": null, "model__class_weight": "balanced_subsample"}`
 
-#### Confusion Matrix (validation split)
+### Combinaciones probadas
+| Rank | n_estimators | max_depth | min_samples_leaf | min_samples_split | max_features | class_weight | Mean CV AP | Std CV AP |
+| ---: | ---: | --- | ---: | ---: | --- | --- | ---: | ---: |
+| 1 | 200 | None | 5 | 5 | log2 | balanced_subsample | 0.076405 | 0.016881 |
+| 2 | 300 | None | 10 | 2 | sqrt | balanced | 0.071979 | 0.019357 |
+| 3 | 200 | 20 | 1 | 10 | log2 | balanced | 0.055451 | 0.003254 |
+| 4 | 100 | 20 | 5 | 2 | sqrt | balanced | 0.052861 | 0.004222 |
+| 5 | 300 | 12 | 1 | 2 | log2 | balanced_subsample | 0.040361 | 0.005164 |
+| 6 | 100 | 12 | 10 | 5 | log2 | balanced_subsample | 0.039232 | 0.006091 |
+| 7 | 100 | 12 | 2 | 10 | sqrt | balanced_subsample | 0.035841 | 0.003615 |
+| 8 | 200 | 8 | 2 | 2 | log2 | balanced | 0.034740 | 0.004896 |
+| 8 | 200 | 8 | 2 | 2 | sqrt | balanced | 0.034740 | 0.004896 |
+| 10 | 300 | 8 | 5 | 2 | sqrt | balanced_subsample | 0.033874 | 0.003097 |
+| 11 | 200 | 8 | 1 | 5 | log2 | balanced_subsample | 0.031839 | 0.002619 |
+| 12 | 100 | 8 | 1 | 10 | log2 | balanced_subsample | 0.031556 | 0.004216 |
+
+## Modelo final: Random Forest RandomizedSearchCV + punto de corte F1
+| Métrica | Valor |
+| --- | ---: |
+| Precision promedio | 0.101710 |
+| ROC AUC | 0.862764 |
+| Recall (sensibilidad) | 0.165217 |
+| Precisión | 0.263889 |
+| F1 | 0.203209 |
+| Umbral / punto de corte | 0.210032 |
+
+### Matriz de confusión final
 | true\pred | 0 | 1 |
 | --- | ---: | ---: |
-| 0 | 8396 | 4714 |
-| 1 | 30 | 56 |
+| 0 | 17427 | 53 |
+| 1 | 96 | 19 |
 
-### Random Forest (tuned)
-| metric | value |
-| --- | --- |
-| Average Precision | 0.097975 |
-| Roc Auc | 0.866022 |
-| Recall | 0.186047 |
-| Precision | 0.228571 |
-| F1 | 0.205128 |
-| Threshold | 0.186926 |
+## Comparación final en test
+| Modelo | AP | ROC AUC | Recall | Precisión | F1 | Threshold | TN | FP | FN | TP |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| RF anterior threshold 0.5 | 0.104562 | 0.867118 | 0.008696 | 0.111111 | 0.016129 | 0.500000 | 17472 | 8 | 114 | 1 |
+| RF anterior punto corte F1 | 0.104562 | 0.867118 | 0.165217 | 0.253333 | 0.200000 | 0.206787 | 17424 | 56 | 96 | 19 |
+| RF RandomizedSearchCV punto corte F1 | 0.101710 | 0.862764 | 0.165217 | 0.263889 | 0.203209 | 0.210032 | 17427 | 53 | 96 | 19 |
 
-- Best params: `{"class_weight": "balanced_subsample", "max_depth": null, "max_features": "sqrt", "min_samples_leaf": 5, "n_estimators": 200}`
+## Lectura
+- Con `threshold = 0.5`, Random Forest detecta solo 1 fraude etiquetado.
+- Con punto de corte por F1 (`0.2100`), el modelo final detecta 19 fraudes etiquetados.
+- La salida debe interpretarse como prioridad de revisión, no como veredicto de fraude.
 
-#### Confusion Matrix (validation split)
-| true\pred | 0 | 1 |
-| --- | ---: | ---: |
-| 0 | 13056 | 54 |
-| 1 | 70 | 16 |
+## Artefactos
+- Modelo guardado: `/Users/igna/git/ProjectoFinal_4Geeks/models/fraud_risk_model.joblib`
+- Metadata guardada: `/Users/igna/git/ProjectoFinal_4Geeks/models/model_metadata.json`
+- SHA-256 del modelo: `82bdc6f70de92f07dca20b9975d33decb23e10a12fff3e6ad61359a89c2a9316`
 
-## Final model selection
-- Selected for test evaluation: **Random Forest (tuned)**
-
-## Held-out test metrics
-| metric | value |
-| --- | --- |
-| Average Precision | 0.068777 |
-| Roc Auc | 0.843148 |
-| Recall | 0.103448 |
-| Precision | 0.147541 |
-| F1 | 0.121622 |
-| Threshold | 0.186926 |
-
-### Confusion Matrix (held-out test)
-| true\pred | 0 | 1 |
-| --- | ---: | ---: |
-| 0 | 13058 | 52 |
-| 1 | 78 | 9 |
-
-
-## Deployment artifacts
-- Saved model: `/Users/igna/git/ProjectoFinal_4Geeks/models/fraud_risk_model.joblib`
-- Saved metadata: `/Users/igna/git/ProjectoFinal_4Geeks/models/model_metadata.json`
-- The model output is **review priority**, not a legal or audit proof of fraud.
-- `target_fraud = 1` means an `AAER_ID` is present in the source dataset.
-- `target_fraud = 0` means no known `AAER_ID` label is present in this dataset.
-
-*Generated: 2026-05-10 22:04:36*
+*Generado: 2026-05-16 18:35:05*

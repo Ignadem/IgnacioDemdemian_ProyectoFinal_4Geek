@@ -1,84 +1,84 @@
-# Fraud Financial Risk Detection (Machine Learning Course Project)
+# Detección de Riesgo de Fraude Financiero (Proyecto de Machine Learning)
 
-This project demonstrates a full demo workflow for a **fraud-risk prioritization** system.
+Este proyecto muestra un flujo de trabajo completo para una demostración de **priorización de riesgo financiero**.
 
-It is built to be understandable for non-technical review:
+Está diseñado para que sea entendible en revisiones no técnicas:
 
-- get a public Kaggle financial dataset,
-- store it in SQLite,
-- run SQL + focused EDA,
-- train and evaluate models with imbalance-aware metrics,
-- save a model artifact,
-- run a Streamlit demo that scores one company-year record.
+- descargar un dataset financiero público desde Kaggle,
+- guardarlo en SQLite,
+- ejecutar SQL + EDA enfocada,
+- entrenar y evaluar modelos con métricas para clases desbalanceadas,
+- guardar el artefacto del modelo,
+- ejecutar una demo en Streamlit que puntúa un registro empresa-año.
 
-The app and model output is a **review-priority signal**, not a legal or audit verdict.
+La salida de la app y del modelo es una **señal de prioridad de revisión**, no un veredicto legal o de auditoría.
 
-## Project Goal
+## Objetivo del proyecto
 
-Predict whether a company-year record is similar to other rows that were linked to known accounting/auditing enforcement cases.
+Predecir si un registro empresa-año se parece a otros registros vinculados a casos conocidos de cumplimiento contable/auditivo.
 
-**Important:** `target_fraud = 1` means `AAER_ID` exists in the source dataset.  
-`target_fraud = 0` means no known `AAER_ID` label is present in this dataset.
+**Importante:** `target_fraud = 1` significa que `AAER_ID` existe en el dataset original.  
+`target_fraud = 0` significa que no hay una etiqueta `AAER_ID` conocida en este dataset.
 
-## Data source
+## Fuente de datos
 
-- Official Kaggle dataset: `abdulmalekalsalemi/new-fraud-financial-dataset`
+- Dataset oficial de Kaggle: `abdulmalekalsalemi/new-fraud-financial-dataset`
 - Kaggle URL: https://www.kaggle.com/datasets/abdulmalekalsalemi/new-fraud-financial-dataset
 - Local file: `data/Cleaned_data_1995_2018.csv`
 
-See [`docs/data_source.md`](docs/data_source.md) for source and acquisition notes.
+Ver [`docs/data_source.md`](docs/data_source.md) para detalles de origen y descarga.
 
-## Setup
+## Configuración
 
-Recommended environment:
+Entorno recomendado:
 
 ```bash
 cd /Users/igna/git/ProjectoFinal_4Geeks
 /Users/igna/entorno/bin/python -m pip install -r requirements.txt
 ```
 
-## Run the project
+## Ejecutar el proyecto
 
-1. **Validate dataset**
+1. **Validar dataset**
 
 ```bash
 /Users/igna/entorno/bin/python scripts/validate_data.py
 ```
 
-2. **Build SQLite and SQL report**
+2. **Crear SQLite y reporte SQL**
 
 ```bash
 /Users/igna/entorno/bin/python scripts/create_database.py
 /Users/igna/entorno/bin/python scripts/run_sql_analysis.py
 ```
 
-3. **Run EDA**
+3. **Ejecutar EDA**
 
 ```bash
 /Users/igna/entorno/bin/python scripts/generate_eda_report.py
 ```
 
-4. **Train model + save artifacts**
+4. **Entrenar modelo + guardar artefactos**
 
 ```bash
 /Users/igna/entorno/bin/python scripts/train_model.py
 ```
 
-This creates:
+Esto crea:
 
 - `models/fraud_risk_model.joblib`
 - `models/model_metadata.json`
 - `reports/modeling/model_results.md`
 
-5. **Run Streamlit demo**
+5. **Ejecutar demo de Streamlit**
 
 ```bash
 /Users/igna/entorno/bin/python -m streamlit run app.py
 ```
 
-## Modeling summary
+## Resumen del modelado
 
-Feature set (12):
+Conjunto de variables (12):
 
 - `Financial_Year`
 - `sale`
@@ -93,40 +93,41 @@ Feature set (12):
 - `xint`
 - `prcc_f`
 
-Baseline model:
+Modelo base:
 
-- Logistic Regression (imbalance-aware)
+- Regresión logística (con tratamiento de desbalance)
 
-Final model:
+Modelo final:
 
-- Tuned Random Forest, selected by Average Precision (PR AUC)
+- Random Forest optimizado con `RandomizedSearchCV`, seleccionado por **Average Precision (PR AUC)** y usado con punto de corte por **F1**.
 
-## Evaluation metrics
+## Métricas de evaluación
 
-- Primary: **Average Precision / PR AUC**
-- Supporting: Recall, Precision, F1, ROC AUC, Confusion Matrix
+- Primaria: **Average Precision / PR AUC**
+- Complementarias: Sensibilidad (Recall), Precisión, F1, ROC AUC, Matriz de confusión
+- Punto de corte final: aproximadamente `0.21`, elegido por F1.
 
-`Accuracy is not used as a primary metric` because positive labels are very rare (~0.6536%).
+No se usa `accuracy` como métrica principal porque las etiquetas positivas son muy raras (~0,6536%).
 
-## App behavior
+## Comportamiento de la app
 
-- Inputs: 12 numeric features
-- Output:
-  - fraud-risk probability (`0` to `1`)
-  - category:
-    - Low: score < 0.10
-    - Medium: 0.10 to < 0.30
-    - High: >= 0.30
-- **Output is review priority only.**
+- Entradas: 12 variables numéricas
+- Salida:
+  - probabilidad de riesgo de fraude (`0` a `1`)
+  - categoría:
+    - Bajo: puntuación < 0.21
+    - Medio: 0.21 a < 0.30
+    - Alto: >= 0.30
+- **La salida es solo prioridad de revisión.**
 
-## Limitations
+## Limitaciones
 
-- The target uses `AAER_ID` from the dataset, so unlabeled rows are not proof of no fraud.
-- One-model, one-horizon benchmark (no time-based drift handling).
-- Not a production system: no authentication, audit trail, threshold governance, or batch upload yet.
-- Metrics prioritize ranking for investigation, not legal certainty.
+- La etiqueta objetivo usa `AAER_ID` del dataset, por lo que una fila sin etiqueta no prueba ausencia de fraude.
+- Modelo base de un solo enfoque y un solo horizonte temporal (sin ajuste por drift temporal).
+- No es un sistema de producción: aún no hay autenticación, trazabilidad de auditoría, control de umbrales ni carga por lotes.
+- Las métricas priorizan el ranking para la investigación, no la certeza legal.
 
-## Docs
+## Documentación
 
 - [`docs/data_source.md`](docs/data_source.md)
 - [`docs/feature_glossary.md`](docs/feature_glossary.md)

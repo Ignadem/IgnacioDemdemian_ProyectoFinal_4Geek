@@ -1,64 +1,69 @@
-# Data Source
+# Origen de datos
 
-## Official Dataset
+## Dataset oficial
 
-This project uses the Kaggle dataset **New Fraud Financial Dataset**.
+Este proyecto usa el dataset de Kaggle **New Fraud Financial Dataset**.
 
 - Kaggle URL: https://www.kaggle.com/datasets/abdulmalekalsalemi/new-fraud-financial-dataset
 - Kaggle dataset slug: `abdulmalekalsalemi/new-fraud-financial-dataset`
 - Local project file: `data/Cleaned_data_1995_2018.csv`
 
-The dataset contains historical company financial records from fiscal years 1995 through 2018. Each row represents a company-year financial record.
+El dataset contiene registros financieros históricos de empresas de los ejercicios fiscales 1995–2018.
+Cada fila representa un registro financiero de una empresa en un año.
 
-## Reproducible Acquisition
+## Adquisición reproducible
 
-The official acquisition method for this project is the Kaggle API/CLI:
+El método oficial de adquisición para este proyecto es la API/CLI de Kaggle:
 
 ```bash
 kaggle datasets download -d abdulmalekalsalemi/new-fraud-financial-dataset
 ```
 
-Then unzip the downloaded archive and place `Cleaned_data_1995_2018.csv` at:
+Luego descomprimí el archivo descargado y colocá `Cleaned_data_1995_2018.csv` en:
 
 ```text
 data/Cleaned_data_1995_2018.csv
 ```
 
-This requires Kaggle credentials configured locally. If the CSV already exists locally, the project validation script can verify that it matches the expected dataset copy.
+Esto requiere credenciales de Kaggle configuradas localmente. Si el CSV ya existe localmente, el script de validación puede confirmar que coincide con la copia esperada del dataset.
 
-## Target Label
+## Etiqueta objetivo
 
-The original dataset includes the column `AAER_ID`.
+El dataset original incluye la columna `AAER_ID`.
 
-`AAER_ID` means **Accounting and Auditing Enforcement Release ID**. In simple terms, it is an identifier for a known enforcement case related to accounting or auditing problems. When a row has an `AAER_ID`, the dataset is marking that company-year record as connected to a known fraud-related case.
+`AAER_ID` significa **Accounting and Auditing Enforcement Release ID**.
+En términos simples, es el identificador de un caso de enforcement conocido relacionado con temas contables o de auditoría.
+Cuando una fila tiene `AAER_ID`, el dataset está marcando ese registro empresa-año como vinculado a un caso relacionado con fraude.
 
-For this project, we use `AAER_ID` as the source for the fraud label. The model is not trying to prove fraud by itself; it is learning from records that already have this enforcement-case identifier.
+En este proyecto usamos `AAER_ID` como fuente para la etiqueta de fraude.
+El modelo no intenta probar fraude por sí solo; aprende de registros que ya vienen etiquetados con ese identificador de caso.
 
-For this project, the modeling target is created as:
+Para este proyecto, la variable objetivo se crea como:
 
 ```text
-target_fraud = 1 if AAER_ID exists
-target_fraud = 0 if AAER_ID is missing
+`target_fraud = 1` si `AAER_ID` existe
+`target_fraud = 0` si `AAER_ID` falta
 ```
 
-Interpretation:
+Interpretación:
 
-- `target_fraud = 1`: the record is linked to a known fraud-related enforcement case.
-- `target_fraud = 0`: no known fraud label is recorded in this dataset.
+- `target_fraud = 1`: el registro está vinculado a un caso de enforcement relacionado con fraude conocido.
+- `target_fraud = 0`: no hay etiqueta de fraude conocida en este dataset.
 
-Important limitation: `target_fraud = 0` does not prove that a company-year record was honest. It only means the dataset does not contain a known fraud label for that row.
+Importante: `target_fraud = 0` no prueba que un registro empresa-año sea limpio. Solo significa que
+este dataset no contiene una etiqueta de fraude conocida para esa fila.
 
-## Local Validation
+## Validación local
 
-Validate the local CSV with:
+Validá el CSV local con:
 
 ```bash
 /Users/igna/entorno/bin/python scripts/validate_data.py
 ```
 
-The validation checks:
+La validación comprueba:
 
-- file exists;
-- expected row count;
-- expected SHA-256 checksum;
-- required columns for Phase 1 and modeling.
+- que el archivo exista;
+- cantidad esperada de filas;
+- checksum SHA-256 esperado;
+- columnas requeridas para Fase 1 y modelado.

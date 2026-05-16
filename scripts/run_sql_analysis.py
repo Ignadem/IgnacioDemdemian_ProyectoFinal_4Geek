@@ -12,79 +12,79 @@ REPORT_PATH = BASE_DIR / "reports" / "sql" / "phase1_sql_results.md"
 
 QUERIES = [
     (
-        "Total Records",
+        "Total de registros",
         """
         SELECT
-          COUNT(*) AS total_records
+          COUNT(*) AS total_registros
         FROM financial_records;
         """,
     ),
     (
-        "Fraud vs Non-Fraud Count",
+        "Conteo de fraude vs no fraude",
         """
         SELECT
-          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS target_fraud,
-          COUNT(*) AS records
+          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+          COUNT(*) AS registros
         FROM financial_records
-        GROUP BY target_fraud
-        ORDER BY target_fraud;
+        GROUP BY etiqueta_fraude
+        ORDER BY etiqueta_fraude;
         """,
     ),
     (
-        "Fraud Rate by Financial Year",
+        "Tasa de fraude por año fiscal",
         """
         SELECT
-          Financial_Year,
-          COUNT(*) AS total_records,
-          SUM(CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END) AS fraud_cases,
-          ROUND(AVG(CASE WHEN AAER_ID IS NOT NULL THEN 1.0 ELSE 0.0 END) * 100, 4) AS fraud_rate_percent
+          Financial_Year AS ejercicio_fiscal,
+          COUNT(*) AS total_registros,
+          SUM(CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END) AS casos_fraude,
+          ROUND(AVG(CASE WHEN AAER_ID IS NOT NULL THEN 1.0 ELSE 0.0 END) * 100, 4) AS tasa_fraude_porcentaje
         FROM financial_records
         GROUP BY Financial_Year
         ORDER BY Financial_Year;
         """,
     ),
     (
-        "Average Key Financial Values by Fraud Label",
+        "Valores financieros clave promedio por etiqueta de fraude",
         """
         SELECT
-          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS target_fraud,
-          COUNT(*) AS records,
-          ROUND(AVG(sale), 2) AS avg_sales,
-          ROUND(AVG(ni), 2) AS avg_net_income,
-          ROUND(AVG(at), 2) AS avg_assets,
-          ROUND(AVG(lt), 2) AS avg_liabilities,
-          ROUND(AVG(che), 2) AS avg_cash
+          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+          COUNT(*) AS registros,
+          ROUND(AVG(sale), 2) AS promedio_ventas,
+          ROUND(AVG(ni), 2) AS promedio_ingreso_neto,
+          ROUND(AVG(at), 2) AS promedio_activos,
+          ROUND(AVG(lt), 2) AS promedio_pasivos,
+          ROUND(AVG(che), 2) AS promedio_efectivo
         FROM financial_records
-        GROUP BY target_fraud
-        ORDER BY target_fraud;
+        GROUP BY etiqueta_fraude
+        ORDER BY etiqueta_fraude;
         """,
     ),
     (
-        "Receivables-to-Sales Ratio by Fraud Label",
+        "Ratio cuentas por cobrar / ventas por etiqueta de fraude",
         """
         SELECT
-          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS target_fraud,
-          COUNT(*) AS records,
-          ROUND(AVG(rect), 2) AS avg_receivables,
-          ROUND(AVG(sale), 2) AS avg_sales,
-          ROUND(AVG(rect / NULLIF(sale, 0)), 4) AS avg_receivables_to_sales_ratio
+          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+          COUNT(*) AS registros,
+          ROUND(AVG(rect), 2) AS promedio_cuentas_por_cobrar,
+          ROUND(AVG(sale), 2) AS promedio_ventas,
+          ROUND(AVG(rect / NULLIF(sale, 0)), 4) AS razon_cuentas_por_cobrar_ventas
         FROM financial_records
-        GROUP BY target_fraud
-        ORDER BY target_fraud;
+        GROUP BY etiqueta_fraude
+        ORDER BY etiqueta_fraude;
         """,
     ),
     (
-        "Liabilities-to-Assets Ratio by Fraud Label",
+        "Ratio pasivos / activos por etiqueta de fraude",
         """
         SELECT
-          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS target_fraud,
-          COUNT(*) AS records,
-          ROUND(AVG(lt), 2) AS avg_liabilities,
-          ROUND(AVG(at), 2) AS avg_assets,
-          ROUND(AVG(lt / NULLIF(at, 0)), 4) AS avg_liabilities_to_assets_ratio
+          CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+          COUNT(*) AS registros,
+          ROUND(AVG(lt), 2) AS promedio_pasivos,
+          ROUND(AVG(at), 2) AS promedio_activos,
+          ROUND(AVG(lt / NULLIF(at, 0)), 4) AS razon_pasivos_activos
         FROM financial_records
-        GROUP BY target_fraud
-        ORDER BY target_fraud;
+        GROUP BY etiqueta_fraude
+        ORDER BY etiqueta_fraude;
         """,
     ),
 ]
@@ -92,7 +92,7 @@ QUERIES = [
 
 def dataframe_to_markdown(df: pd.DataFrame) -> str:
     if df.empty:
-        return "_No rows returned._"
+        return "_No se devolvieron filas._"
 
     headers = [str(column) for column in df.columns]
     rows = []
@@ -111,7 +111,7 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
 def run_queries() -> list[tuple[str, pd.DataFrame]]:
     if not DB_PATH.exists():
         raise FileNotFoundError(
-            f"SQLite database not found: {DB_PATH}. Run scripts/create_database.py first."
+            f"No se encontró la base SQLite: {DB_PATH}. Ejecutá primero scripts/create_database.py."
         )
 
     results = []
@@ -124,9 +124,9 @@ def run_queries() -> list[tuple[str, pd.DataFrame]]:
 def write_report(results: list[tuple[str, pd.DataFrame]]) -> None:
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        "# Phase 1 SQL Results",
+        "# Resultados SQL de Fase 1",
         "",
-        "Generated from `data/fraud_financial.db` using `scripts/run_sql_analysis.py`.",
+        "Generado desde `data/fraud_financial.db` usando `scripts/run_sql_analysis.py`.",
         "",
     ]
 
@@ -139,9 +139,9 @@ def write_report(results: list[tuple[str, pd.DataFrame]]) -> None:
 def main() -> None:
     results = run_queries()
     write_report(results)
-    print(f"Wrote SQL analysis report: {REPORT_PATH}")
+    print(f"Reporte SQL generado: {REPORT_PATH}")
     for title, df in results:
-        print(f"- {title}: {len(df)} row(s)")
+        print(f"- {title}: {len(df)} fila(s)")
 
 
 if __name__ == "__main__":
