@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import textwrap
 from pathlib import Path
 
 import pandas as pd
@@ -108,7 +109,11 @@ def dataframe_to_markdown(df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def run_queries() -> list[tuple[str, pd.DataFrame]]:
+def clean_query(query: str) -> str:
+    return textwrap.dedent(query).strip()
+
+
+def run_queries() -> list[tuple[str, str, pd.DataFrame]]:
     if not DB_PATH.exists():
         raise FileNotFoundError(
             f"No se encontró la base SQLite: {DB_PATH}. Ejecutá primero scripts/create_database.py."
@@ -116,12 +121,13 @@ def run_queries() -> list[tuple[str, pd.DataFrame]]:
 
     results = []
     with sqlite3.connect(DB_PATH) as connection:
+        connection.execute("PRAGMA temp_store = MEMORY;")
         for title, query in QUERIES:
-            results.append((title, pd.read_sql_query(query, connection)))
+            results.append((title, clean_query(query), pd.read_sql_query(query, connection)))
     return results
 
 
-def write_report(results: list[tuple[str, pd.DataFrame]]) -> None:
+def write_report(results: list[tuple[str, str, pd.DataFrame]]) -> None:
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         "# Resultados SQL de Fase 1",
@@ -130,8 +136,23 @@ def write_report(results: list[tuple[str, pd.DataFrame]]) -> None:
         "",
     ]
 
-    for title, df in results:
-        lines.extend([f"## {title}", "", dataframe_to_markdown(df), ""])
+    for title, query, df in results:
+        lines.extend(
+            [
+                f"## {title}",
+                "",
+                "**Consulta:**",
+                "",
+                "```sql",
+                query,
+                "```",
+                "",
+                "**Resultado:**",
+                "",
+                dataframe_to_markdown(df),
+                "",
+            ]
+        )
 
     REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
 
@@ -140,7 +161,7 @@ def main() -> None:
     results = run_queries()
     write_report(results)
     print(f"Reporte SQL generado: {REPORT_PATH}")
-    for title, df in results:
+    for title, _, df in results:
         print(f"- {title}: {len(df)} fila(s)")
 
 

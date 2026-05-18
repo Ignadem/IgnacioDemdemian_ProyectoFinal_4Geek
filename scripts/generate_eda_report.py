@@ -97,6 +97,40 @@ def signed_log10(series: pd.Series) -> pd.Series:
     return np.sign(values) * np.log10(1 + np.abs(values))
 
 
+def inverse_signed_log10(value: float) -> float:
+    if value == 0:
+        return 0.0
+    return float(np.sign(value) * (10 ** abs(value) - 1))
+
+
+def compact_axis_amount(value: float) -> str:
+    number = inverse_signed_log10(value)
+    abs_number = abs(number)
+    sign = "-" if number < 0 else ""
+    if abs_number >= 999_500:
+        return f"{sign}{abs_number / 1_000_000:.0f}M"
+    if abs_number >= 999.5:
+        return f"{sign}{abs_number / 1_000:.0f}K"
+    return f"{number:.0f}"
+
+
+def set_original_amount_ticks(ax: plt.Axes) -> None:
+    x_min, x_max = ax.get_xlim()
+    if x_min < 0:
+        original_ticks = [-1_000_000, 0, 100, 10_000, 1_000_000]
+    else:
+        original_ticks = [0, 100, 10_000, 1_000_000, 10_000_000]
+
+    transformed_ticks = [
+        float(np.sign(value) * np.log10(1 + abs(value))) for value in original_ticks
+    ]
+    visible_ticks = [
+        tick for tick in transformed_ticks if (x_min - 0.05) <= tick <= (x_max + 0.05)
+    ]
+    ax.set_xticks(visible_ticks)
+    ax.set_xticklabels([compact_axis_amount(tick) for tick in visible_ticks])
+
+
 def build_receivables_to_sales_frame(df: pd.DataFrame) -> pd.DataFrame:
     ratio = df["rect"] / df["sale"].replace(0, np.nan)
     plot_df = pd.DataFrame(
@@ -189,7 +223,8 @@ def save_distribution_chart(df: pd.DataFrame) -> None:
     for ax, column in zip(axes, KEY_FINANCIAL_COLUMNS):
         sns.histplot(plot_df[column].dropna(), bins=40, ax=ax, color="#4c78a8")
         ax.set_title(KEY_FINANCIAL_LABELS[column], fontsize=12)
-        ax.set_xlabel("escala logarítmica con signo", fontsize=10)
+        set_original_amount_ticks(ax)
+        ax.set_xlabel("Monto original aprox.", fontsize=10)
         ax.set_ylabel("Registros", fontsize=10)
         ax.tick_params(axis="both", labelsize=9)
     fig.suptitle("Distribución de variables financieras clave", fontsize=16, y=1.04)
@@ -491,7 +526,8 @@ def write_report(df: pd.DataFrame, summaries: dict[str, pd.DataFrame], corr: pd.
         "![Distribución de variables financieras clave](figures/key_variable_distributions.png)",
         "",
         "Las variables `sale`, `ni`, `at`, `lt` y `che` tienen rangos amplios y outliers visibles.",
-        "Se aplica transformación `signo(log10(1 + abs(valor)))` para graficarlas sin eliminar registros extremos.",
+        "El gráfico usa una escala comprimida para que los valores extremos no oculten la forma general.",
+        "El eje X muestra montos originales aproximados para que la lectura sea más directa.",
         "",
         "En términos simples, algunos registros muy grandes pueden dominar una escala lineal, por eso se usa escalado seguro para presentación.",
         "",

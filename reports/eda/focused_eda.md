@@ -72,7 +72,8 @@ Por eso conviene interpretarlo como concentración de registros con AAER_ID cono
 ![Distribución de variables financieras clave](figures/key_variable_distributions.png)
 
 Las variables `sale`, `ni`, `at`, `lt` y `che` tienen rangos amplios y outliers visibles.
-Se aplica transformación `signo(log10(1 + abs(valor)))` para graficarlas sin eliminar registros extremos.
+El gráfico usa una escala comprimida para que los valores extremos no oculten la forma general.
+El eje X muestra montos originales aproximados para que la lectura sea más directa.
 
 En términos simples, algunos registros muy grandes pueden dominar una escala lineal, por eso se usa escalado seguro para presentación.
 

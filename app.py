@@ -645,7 +645,7 @@ def _inject_layout_styles() -> None:
 
         .eda-spotlight {
             display: grid;
-            grid-template-columns: minmax(280px, 0.74fr) minmax(0, 1.26fr);
+            grid-template-columns: minmax(0, 1.08fr) minmax(300px, 0.92fr);
             gap: 0.78rem;
             align-items: start;
             margin-bottom: 0.9rem;
@@ -779,7 +779,7 @@ def _inject_layout_styles() -> None:
         }
 
         .eda-spotlight .eda-chart-image {
-            max-height: 330px;
+            max-height: 390px;
         }
 
         .eda-conclusion {
@@ -858,6 +858,10 @@ def _inject_layout_styles() -> None:
 
         .bar-fill.muted {
             background: linear-gradient(90deg, #53627a, #718098);
+        }
+
+        .bar-fill.winner {
+            background: linear-gradient(90deg, var(--accent), #8fb4ff);
         }
 
         .insight-foot {
@@ -2136,6 +2140,75 @@ def _inject_layout_styles() -> None:
             border: 1px solid var(--line-soft);
         }
 
+        .sql-report-section {
+            border: 1px solid var(--line-soft);
+            border-radius: var(--radius);
+            background: #0f151f;
+            padding: 0.85rem;
+            margin: 0.75rem 0;
+        }
+
+        .sql-report-title {
+            color: var(--text-main);
+            font-weight: 800;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .sql-report-label {
+            color: var(--text-soft);
+            font-weight: 760;
+            font-size: 0.82rem;
+            margin: 0.35rem 0 0.28rem;
+        }
+
+        .sql-code {
+            margin: 0 0 0.7rem;
+            padding: 0.7rem 0.78rem;
+            overflow-x: auto;
+            border-radius: 7px;
+            border: 1px solid #283447;
+            background: #080d14;
+            color: #d9e7ff;
+            font-size: 0.78rem;
+            line-height: 1.45;
+        }
+
+        .sql-table-wrap {
+            display: flex;
+            justify-content: center;
+            overflow-x: auto;
+            width: 100%;
+            padding-bottom: 0.15rem;
+        }
+
+        .sql-result-table {
+            border-collapse: collapse;
+            width: auto;
+            min-width: min(100%, 520px);
+            margin: 0 auto;
+            color: var(--text-main);
+            font-size: 0.82rem;
+        }
+
+        .sql-result-table th,
+        .sql-result-table td {
+            border: 1px solid var(--line-soft);
+            padding: 0.45rem 0.62rem;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .sql-result-table th {
+            background: #171d28;
+            color: #eef3ff;
+            font-weight: 800;
+        }
+
+        .sql-result-table td {
+            background: #0c1119;
+        }
+
         .stTabs [data-baseweb="tab-list"] {
             display: inline-flex;
             width: fit-content;
@@ -2742,71 +2815,12 @@ def _risk_card_class(level: str) -> str:
     return {"Bajo": "low", "Medio": "medium", "Alto": "high"}.get(level, "")
 
 
-def _render_kpi_strip(dataset_rows: int, positive_ratio: float, threshold: float, model_name: str, n_features: int) -> None:
-    tiles = [
-        ("Modelo en uso", model_name, "Último artefacto guardado"),
-        ("Registros", f"{dataset_rows:,}", "Total procesado"),
-        ("Tasa de señal", _as_percent(positive_ratio), "Registros con etiqueta"),
-        ("Punto de corte F1", _as_percent(threshold), "Puntaje mínimo de riesgo"),
-        ("Variables", str(n_features), "Indicadores usados"),
-    ]
-    tiles_html = "\n".join(
-        f"""
-        <article class="kpi-card">
-          <div class="kpi-label">{_html(label)}</div>
-          <div class="kpi-value">{_html(value)}</div>
-          <div class="kpi-sub">{_html(sub)}</div>
-        </article>
-        """
-        for label, value, sub in tiles
-    )
-    st.markdown(
-        f"""
-        <div class="section-header">Resumen ejecutivo</div>
-        <section class="kpi-grid">{tiles_html}</section>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def _render_metric_cards(metadata: dict) -> None:
-    dataset_rows = int(metadata.get("dataset_rows", 0))
     positive_ratio = float(metadata.get("dataset_positive_ratio", 0.0))
-    model_name = metadata.get("model_name", "Modelo guardado")
-    threshold = float(metadata.get("selected_model_threshold", 0.5))
     comparison_metrics = metadata.get("model_comparison_metrics", {})
     legacy_validation_metrics = metadata.get("validation_metrics", {})
     test_metrics = metadata.get("test_metrics", {})
     random_search = metadata.get("randomized_search", {})
-
-    st.markdown(
-        f"""
-        <section class="lead-card">
-          <div class="lead-kicker">Modelo elegido</div>
-          <div class="lead-title">{_html(model_name)}</div>
-          <div class="lead-copy">
-            El proyecto compara una base lineal contra Random Forest y luego ajusta el modelo final con RandomizedSearchCV y punto de corte por F1.
-          </div>
-        </section>
-        <section class="model-explain-grid">
-          <article class="metric-explain">
-            <strong>Por qué no usamos accuracy</strong>
-            <p>Solo {_as_percent(positive_ratio)} de los registros tiene etiqueta positiva. Un modelo que predice casi todo como 0 podría parecer bueno y aun así fallar el objetivo.</p>
-          </article>
-          <article class="metric-explain">
-            <strong>Métrica principal</strong>
-            <p>Average Precision / PR AUC mide si los casos etiquetados aparecen arriba en el ranking de riesgo.</p>
-          </article>
-          <article class="metric-explain">
-            <strong>Lectura responsable</strong>
-            <p>Una predicción positiva significa prioridad de revisión, no confirmación legal ni auditoría cerrada.</p>
-          </article>
-        </section>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    _render_kpi_strip(dataset_rows, positive_ratio, threshold, model_name, len(metadata.get("feature_columns", [])))
 
     if comparison_metrics:
         model_rows = [
@@ -2836,8 +2850,10 @@ def _render_metric_cards(metadata: dict) -> None:
         rf_ap = float(forest_metrics.get("average_precision", 0.0))
         lr_f1 = float(logistic_metrics.get("f1", 0.0))
         rf_f1 = float(forest_metrics.get("f1", 0.0))
-        ap_width = min((lr_ap / rf_ap * 100) if rf_ap else 0, 100)
-        f1_width = min((lr_f1 / rf_f1 * 100) if rf_f1 else 0, 100)
+        lr_ap_width = min(max(lr_ap * 100, 0), 100)
+        rf_ap_width = min(max(rf_ap * 100, 0), 100)
+        lr_f1_width = min(max(lr_f1 * 100, 0), 100)
+        rf_f1_width = min(max(rf_f1 * 100, 0), 100)
         st.markdown(
             f"""
             <div class="section-header">Evidencia de selección del modelo</div>
@@ -2845,19 +2861,24 @@ def _render_metric_cards(metadata: dict) -> None:
               <article class="insight-card wide">
                 <div class="insight-title">Comparación de modelos</div>
                 <div class="insight-copy">Se probó una base de Regresión Logística y se eligió Random Forest por mejor desempeño en señales raras.</div>
-                <div class="insight-copy">Average Precision mide si los registros con etiqueta positiva aparecen arriba entre los casos con mayor puntaje de riesgo.</div>
+                <div class="insight-copy"><strong>Average Precision</strong> significa precisión promedio en el ranking: mide qué tan bien el modelo pone los casos con AAER_ID entre los primeros lugares de riesgo. Es útil porque hay muy pocos positivos.</div>
                 <div class="bar-row">
-                  <div class="bar-label"><span>RL · Average Precision</span><strong>{lr_ap:.4f}</strong></div>
-                  <div class="bar-track"><div class="bar-fill muted" style="width: {ap_width:.1f}%;"></div></div>
+                  <div class="bar-label"><span>RL · precisión promedio ranking</span><strong>{lr_ap:.4f}</strong></div>
+                  <div class="bar-track"><div class="bar-fill muted" style="width: {lr_ap_width:.2f}%;"></div></div>
                 </div>
                 <div class="bar-row">
-                  <div class="bar-label"><span>RF · Average Precision</span><strong>{rf_ap:.4f}</strong></div>
-                  <div class="bar-track"><div class="bar-fill warning" style="width: 100%;"></div></div>
+                  <div class="bar-label"><span>RF · precisión promedio ranking</span><strong>{rf_ap:.4f}</strong></div>
+                  <div class="bar-track"><div class="bar-fill warning" style="width: {rf_ap_width:.2f}%;"></div></div>
                 </div>
                 <div class="bar-row">
-                  <div class="bar-label"><span>F1: RL vs RF</span><strong>{lr_f1:.4f} -> {rf_f1:.4f}</strong></div>
-                  <div class="bar-track"><div class="bar-fill" style="width: {max(f1_width, 6):.1f}%;"></div></div>
+                  <div class="bar-label"><span>RL · F1 Score</span><strong>{lr_f1:.4f}</strong></div>
+                  <div class="bar-track"><div class="bar-fill muted" style="width: {lr_f1_width:.2f}%;"></div></div>
                 </div>
+                <div class="bar-row">
+                  <div class="bar-label"><span>RF · F1 Score</span><strong>{rf_f1:.4f}</strong></div>
+                  <div class="bar-track"><div class="bar-fill winner" style="width: {rf_f1_width:.2f}%;"></div></div>
+                </div>
+                <div class="insight-copy">F1 resume el equilibrio entre precision y recall. Cuanto más alto, mejor balance entre detectar casos con AAER_ID y evitar falsas alertas.</div>
                 <div class="insight-foot">La elección se basa en métricas para clases desbalanceadas, no en accuracy.</div>
               </article>
             </section>
@@ -2873,49 +2894,81 @@ def _render_metric_cards(metadata: dict) -> None:
             compare_rows.append(
                 {
                     "Modelo": model_label,
-                    "Precisión media PR": _as_percent(model_metrics.get("average_precision", 0)),
-                    "ROC AUC": _as_percent(model_metrics.get("roc_auc", 0)),
-                    "Recall": _as_percent(model_metrics.get("recall", 0)),
                     "Precision": _as_percent(model_metrics.get("precision", 0)),
-                    "F1": _as_percent(model_metrics.get("f1", 0)),
-                    "Umbral": _as_percent(model_metrics.get("threshold", 0)),
+                    "Average Precision": _as_percent(model_metrics.get("average_precision", 0)),
+                    "Recall": _as_percent(model_metrics.get("recall", 0)),
+                    "ROC AUC": _as_percent(model_metrics.get("roc_auc", 0)),
+                    "F1 Score": _as_percent(model_metrics.get("f1", 0)),
+                    "Threshold": _as_percent(model_metrics.get("threshold", 0)),
                 }
             )
         st.dataframe(pd.DataFrame(compare_rows), width="stretch", hide_index=True)
+
+    if test_metrics:
+        st.markdown(
+            """
+            <div class="section-header">Cómo leer estas métricas</div>
+            <section class="model-explain-grid">
+              <article class="metric-explain">
+                <strong>Precision</strong>
+                <p>Indica qué parte de los registros marcados para revisión tenía AAER_ID. Ayuda a entender cuántas alertas positivas son realmente casos etiquetados.</p>
+              </article>
+              <article class="metric-explain">
+                <strong>Average Precision</strong>
+                <p>Mide si los registros con AAER_ID aparecen arriba en el ranking de riesgo. Es más útil que accuracy cuando la clase positiva es muy rara.</p>
+              </article>
+              <article class="metric-explain">
+                <strong>Recall</strong>
+                <p>Indica qué parte de los registros con AAER_ID logra encontrar el modelo. Sirve para ver cuántos casos etiquetados quedan por debajo del punto de corte.</p>
+              </article>
+              <article class="metric-explain">
+                <strong>ROC AUC</strong>
+                <p>Mide la capacidad general de ordenar casos positivos por encima de negativos. Sirve para comparar separación entre modelos, no para decidir por sí solo el punto de corte.</p>
+              </article>
+              <article class="metric-explain">
+                <strong>F1 Score</strong>
+                <p>Resume el equilibrio entre precision y recall. Se usa cuando importa detectar casos etiquetados, pero también evitar demasiadas alertas falsas.</p>
+              </article>
+              <article class="metric-explain">
+                <strong>Threshold</strong>
+                <p>Es el puntaje mínimo para clasificar un registro como Predicho 1. En este proyecto representa entrada a revisión humana, no confirmación de fraude.</p>
+              </article>
+            </section>
+            <div class="hint-box">Lectura final: este modelo sirve para priorizar revisión humana. No confirma fraude ni reemplaza una auditoría.</div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     if random_search:
         best_params = random_search.get("best_params", {})
         best_cv_score = random_search.get("best_cv_average_precision")
         if best_params:
             st.markdown('<div class="section-header">Hiperparametrización</div>', unsafe_allow_html=True)
-            params_df = pd.DataFrame(
-                [{"Hiperparámetro": key.replace("model__", ""), "Valor": str(value)} for key, value in best_params.items()]
-            )
+            param_descriptions = {
+                "n_estimators": "cantidad de árboles",
+                "min_samples_split": "mínimo de registros para dividir un nodo",
+                "min_samples_leaf": "mínimo de registros por hoja",
+                "max_features": "variables evaluadas en cada división",
+                "max_depth": "profundidad máxima de cada árbol",
+                "class_weight": "peso para compensar el desbalance de clases",
+            }
+            param_rows = []
+            for key, value in best_params.items():
+                param_name = key.replace("model__", "")
+                description = param_descriptions.get(param_name)
+                label = f"{param_name} ({description})" if description else param_name
+                display_value = "Sin límite" if value is None else str(value)
+                param_rows.append({"Hiperparámetro": label, "Valor": display_value})
+            params_df = pd.DataFrame(param_rows)
             if best_cv_score is not None:
                 st.caption(f"RandomizedSearchCV optimizó Average Precision. Mejor promedio CV: {_as_percent(best_cv_score)}")
             st.dataframe(params_df, width="stretch", hide_index=True)
 
     if test_metrics:
-        st.markdown('<div class="section-header">Rendimiento del modelo elegido en test</div>', unsafe_allow_html=True)
-        cols = st.columns(3, gap="small")
-        with cols[0]:
-            st.metric("Precisión media PR", _as_percent(test_metrics.get("average_precision", 0)))
-        with cols[1]:
-            st.metric("ROC AUC", _as_percent(test_metrics.get("roc_auc", 0)))
-        with cols[2]:
-            st.metric("Recall", _as_percent(test_metrics.get("recall", 0)))
-        cols = st.columns(3, gap="small")
-        with cols[0]:
-            st.metric("Precision", _as_percent(test_metrics.get("precision", 0)))
-        with cols[1]:
-            st.metric("F1", _as_percent(test_metrics.get("f1", 0)))
-        with cols[2]:
-            st.metric("Punto de corte", _as_percent(test_metrics.get("threshold", 0)))
-
         confusion_matrix = test_metrics.get("confusion_matrix")
         if confusion_matrix and len(confusion_matrix) == 4:
             tn, fp, fn, tp = confusion_matrix
-            st.markdown('<div class="mini-title">Matriz de confusión en test</div>', unsafe_allow_html=True)
+            st.markdown('<div class="section-header">Matriz de confusión en test</div>', unsafe_allow_html=True)
             confusion_df = pd.DataFrame(
                 [
                     {"Real": "Sin etiqueta conocida", "Predicho 0": tn, "Predicho 1": fp},
@@ -2923,11 +2976,22 @@ def _render_metric_cards(metadata: dict) -> None:
                 ]
             )
             st.dataframe(confusion_df, width="stretch", hide_index=True)
-
-        st.markdown(
-            '<div class="hint-box">Métrica central para fraude desbalanceado: <code>average_precision</code> (PR AUC). El resultado debe leerse como ranking de revisión, no como veredicto.</div>',
-            unsafe_allow_html=True,
-        )
+            reviewed_count = tp + fp
+            actual_labeled_count = tp + fn
+            st.markdown(
+                f"""
+                <div class="hint-box">
+                  <strong>Cómo leer esta matriz:</strong> las filas muestran la etiqueta real disponible y las columnas muestran la decisión del modelo.
+                  <strong>Predicho 1</strong> significa que el registro queda priorizado para revisión humana.
+                  Con el punto de corte actual, el modelo envía <strong>{reviewed_count}</strong> registros a revisión:
+                  <strong>{tp}</strong> tenían AAER_ID y <strong>{fp}</strong> no tenían etiqueta conocida.
+                  De los <strong>{actual_labeled_count}</strong> registros con AAER_ID en test, detecta <strong>{tp}</strong> y deja
+                  <strong>{fn}</strong> por debajo del punto de corte. Por eso el modelo se interpreta como ranking de prioridad,
+                  no como confirmación final de fraude.
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 def _render_project_overview(metadata: dict) -> None:
     rows = int(metadata.get("dataset_rows", 0))
@@ -3045,27 +3109,28 @@ def _render_eda_gallery() -> None:
         """
         <section class="lead-card">
           <div class="lead-kicker">Análisis exploratorio</div>
-          <div class="lead-title">Qué muestran los datos antes de entrenar el modelo</div>
+          <div class="lead-title">Entender los datos antes de entrenar el modelo</div>
           <div class="lead-copy">
-            Esta página ordena la evidencia para defender la decisión del proyecto: no buscamos probar fraude,
-            sino priorizar registros que merecen revisión humana.
+            El EDA revisa la estructura del dataset antes de modelar: cantidad de registros, balance de la etiqueta,
+            evolución temporal, valores extremos y señales financieras. En este proyecto es clave porque la etiqueta
+            positiva es muy rara; por eso el objetivo no es probar fraude, sino priorizar registros para revisión humana.
           </div>
         </section>
         <section class="eda-summary-grid">
           <article class="eda-summary-card">
-            <div class="eda-summary-label">Etiqueta</div>
+            <div class="eda-summary-label">Objetivo del EDA</div>
+            <div class="eda-summary-value">Explorar</div>
+            <div class="eda-summary-copy">Antes de entrenar, se revisa si los datos son consistentes, desbalanceados o dominados por valores extremos.</div>
+          </article>
+          <article class="eda-summary-card">
+            <div class="eda-summary-label">Desbalance</div>
             <div class="eda-summary-value">0.6536%</div>
-            <div class="eda-summary-copy">Solo 575 de 87,974 registros tienen AAER_ID conocido. Accuracy sería una métrica engañosa.</div>
+            <div class="eda-summary-copy">Solo 575 de 87,974 registros tienen AAER_ID. Accuracy puede ser engañosa si el modelo predice casi todo como clase 0.</div>
           </article>
           <article class="eda-summary-card">
-            <div class="eda-summary-label">Tiempo</div>
-            <div class="eda-summary-value">Pico en FY2001</div>
-            <div class="eda-summary-copy">La tasa de casos etiquetados cambia por año; no es un fenómeno uniforme en todo el periodo.</div>
-          </article>
-          <article class="eda-summary-card">
-            <div class="eda-summary-label">Señal financiera</div>
-            <div class="eda-summary-value">rect / sale</div>
-            <div class="eda-summary-copy">Cuentas por cobrar sobre ventas aparece más alta en registros etiquetados y ayuda a explicar el riesgo.</div>
+            <div class="eda-summary-label">Uso posterior</div>
+            <div class="eda-summary-value">Priorizar</div>
+            <div class="eda-summary-copy">La EDA justifica evaluar el modelo como ranking de revisión, no como una herramienta que declara fraude confirmado.</div>
           </article>
         </section>
         """,
@@ -3079,28 +3144,33 @@ def _render_eda_gallery() -> None:
     spotlight_chart = _eda_chart_card_html(
         "target_balance.png",
         "Balance de etiqueta objetivo",
-        "La clase positiva es extremadamente rara. Este gráfico justifica evaluar el modelo como ranking de revisión.",
+        "El gráfico muestra la diferencia real entre registros sin etiqueta conocida y registros con AAER_ID.",
         "Punto de partida",
     )
     st.markdown(
         f"""
         <section class="eda-spotlight">
+          {spotlight_chart}
           <article class="eda-narrative-card">
             <div>
-              <div class="eda-kicker">Lectura recomendada</div>
-              <div class="eda-title">La EDA sostiene el enfoque de priorización, no de veredicto.</div>
+              <div class="eda-kicker">Lectura del desbalance</div>
+              <div class="eda-title">La clase positiva es extremadamente rara.</div>
               <p class="eda-copy">
-                El dataset tiene muchos registros, pero muy pocos casos etiquetados. Por eso el modelo debe leerse
-                como una herramienta para ordenar revisión, no como una prueba legal o auditoría final.
+                Hay 87,399 registros sin etiqueta conocida y solo 575 registros con AAER_ID. Esto significa que la clase
+                positiva representa apenas 0.6536% del dataset. Si un modelo predijera todo como clase 0, tendría una
+                accuracy muy alta, pero no ayudaría a encontrar los casos relevantes.
+              </p>
+              <p class="eda-copy">
+                Por eso el proyecto usa métricas para datos desbalanceados y lee el resultado como prioridad de revisión:
+                el modelo ordena casos que merecen atención, no confirma fraude por sí solo.
               </p>
             </div>
             <div class="eda-step-list">
-              <div class="eda-step"><span>1</span><div>Primero se valida el desbalance de la etiqueta.</div></div>
-              <div class="eda-step"><span>2</span><div>Luego se observa si los casos cambian por año fiscal.</div></div>
-              <div class="eda-step"><span>3</span><div>Finalmente se revisan variables financieras que pueden explicar la señal.</div></div>
+              <div class="eda-step"><span>1</span><div>Se crea <code>target_fraud</code> a partir de AAER_ID para poder entrenar modelos de clasificación.</div></div>
+              <div class="eda-step"><span>2</span><div>Se confirma que la clase positiva es muy minoritaria, por eso accuracy no alcanza.</div></div>
+              <div class="eda-step"><span>3</span><div>Se buscan señales financieras y temporales que ayuden a priorizar registros para revisión.</div></div>
             </div>
           </article>
-          {spotlight_chart}
         </section>
         """,
         unsafe_allow_html=True,
@@ -3130,7 +3200,7 @@ def _render_eda_gallery() -> None:
         {
             "filename": "key_variable_distributions.png",
             "title": "Distribución de montos financieros",
-            "note": "Los montos están muy concentrados y también tienen valores extremos. Por eso se usa una escala logarítmica con signo: comprime los outliers sin borrarlos y permite comparar la forma de ventas, utilidad, activos, pasivos y efectivo.",
+            "note": "Los montos están muy concentrados y también tienen valores extremos. La escala está comprimida para que el gráfico sea legible, pero el eje muestra montos originales aproximados como 100, 1K, 10K o 1M.",
             "tag": "Distribución",
             "wide": True,
         },
@@ -3175,6 +3245,9 @@ def _render_data_page(metadata: dict) -> None:
     positive_ratio = float(metadata.get("dataset_positive_ratio", 0.0))
     positive_count = int(round(rows * positive_ratio))
     negative_count = rows - positive_count
+    negative_ratio = (negative_count / rows) if rows else 0.0
+    negative_bar_width = negative_ratio * 100
+    positive_bar_width = positive_ratio * 100
 
     st.markdown(
         f"""
@@ -3204,11 +3277,12 @@ def _render_data_page(metadata: dict) -> None:
             </ul>
           </article>
           <article class="panel-card overview-card">
-            <div class="panel-title">Interpretación de target_fraud</div>
+            <div class="panel-title">Creación de target_fraud</div>
             <ul>
-              <li><code>target_fraud = 1</code>: la fila tiene AAER_ID.</li>
-              <li><code>target_fraud = 0</code>: no hay etiqueta conocida en este dataset.</li>
-              <li>Un 0 no significa garantía de empresa limpia.</li>
+              <li>Se agrega la columna <code>target_fraud</code> al dataset para convertir <code>AAER_ID</code> en una variable objetivo.</li>
+              <li>Esta columna permite entrenar, evaluar y comparar modelos de clasificación.</li>
+              <li><code>target_fraud = 1</code>: la fila tiene <code>AAER_ID</code>, es decir, está vinculada a un caso conocido.</li>
+              <li><code>target_fraud = 0</code>: no hay etiqueta conocida en este dataset; no garantiza que la empresa sea limpia.</li>
             </ul>
           </article>
         </section>
@@ -3232,12 +3306,12 @@ def _render_data_page(metadata: dict) -> None:
             <div class="insight-title">Etiqueta extremadamente desbalanceada</div>
             <div class="insight-copy">La clase positiva es muy rara. Esto define cómo se analiza el proyecto y por qué accuracy puede ser engañosa.</div>
             <div class="bar-row">
-              <div class="bar-label"><span>Clase 0 · sin etiqueta conocida</span><strong>{negative_count:,}</strong></div>
-              <div class="bar-track"><div class="bar-fill muted" style="width: 99.35%;"></div></div>
+              <div class="bar-label"><span>Clase 0 · sin etiqueta conocida</span><strong>{negative_count:,} · {negative_ratio:.4%}</strong></div>
+              <div class="bar-track"><div class="bar-fill muted" style="width: {negative_bar_width:.4f}%;"></div></div>
             </div>
             <div class="bar-row">
-              <div class="bar-label"><span>Clase 1 · con AAER_ID</span><strong>{positive_count:,}</strong></div>
-              <div class="bar-track"><div class="bar-fill warning" style="width: 8%;"></div></div>
+              <div class="bar-label"><span>Clase 1 · con AAER_ID</span><strong>{positive_count:,} · {positive_ratio:.4%}</strong></div>
+              <div class="bar-track"><div class="bar-fill warning" style="width: {positive_bar_width:.4f}%;"></div></div>
             </div>
             <div class="insight-foot">Tasa positiva real: {positive_ratio:.4%} del dataset.</div>
           </article>
@@ -3254,8 +3328,41 @@ def _render_data_page(metadata: dict) -> None:
     )
 
 
-def _render_variables_page(metadata: dict) -> None:
+def _top_feature_importances(model: object, feature_columns: list[str], limit: int = 2) -> list[tuple[str, float]]:
+    named_steps = getattr(model, "named_steps", None)
+    estimator = named_steps.get("model") if named_steps else model
+    importances = getattr(estimator, "feature_importances_", None)
+    if importances is None or len(importances) != len(feature_columns):
+        return []
+
+    ranked = sorted(
+        zip(feature_columns, [float(value) for value in importances]),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    return ranked[:limit]
+
+
+def _importance_explanation(feature: str) -> str:
+    explanations = {
+        "Financial_Year": (
+            "Captura que los casos con AAER_ID no se distribuyen igual en el tiempo; "
+            "hay años con mayor concentración histórica de casos etiquetados."
+        ),
+        "rect": (
+            "Representa cuentas por cobrar. Ayuda porque valores altos frente a ventas pueden sugerir "
+            "ingresos registrados que todavía no se transformaron en cobros."
+        ),
+    }
+    return explanations.get(
+        feature,
+        "Aporta señal al ranking de riesgo según la importancia interna del Random Forest.",
+    )
+
+
+def _render_variables_page(metadata: dict, model: object) -> None:
     feature_columns = metadata.get("feature_columns", [])
+    top_features = _top_feature_importances(model, feature_columns)
     feature_cards = "\n".join(
         f"""
         <article class="feature-glossary-item">
@@ -3266,6 +3373,18 @@ def _render_variables_page(metadata: dict) -> None:
         """
         for feature in feature_columns
     )
+    important_cards = "\n".join(
+        f"""
+        <article class="eda-summary-card">
+          <div class="eda-summary-label">Variable clave #{index}</div>
+          <div class="eda-summary-value">{_html(_feature_label(feature))}</div>
+          <div class="eda-summary-copy">
+            Importancia en Random Forest: {_as_percent(importance)}. {_html(_importance_explanation(feature))}
+          </div>
+        </article>
+        """
+        for index, (feature, importance) in enumerate(top_features, start=1)
+    )
 
     st.markdown(
         f"""
@@ -3273,32 +3392,93 @@ def _render_variables_page(metadata: dict) -> None:
           <div class="lead-kicker">Preparación de variables</div>
           <div class="lead-title">12 variables financieras usadas por el modelo</div>
           <div class="lead-copy">
-            Se mantiene un conjunto acotado para que el proyecto sea explicable. Las variables cubren contexto temporal,
-            tamaño de la empresa, resultados, deuda, liquidez, operación, costos, impuestos, intereses y precio de mercado.
+            El modelo usa un subconjunto claro de 12 variables en lugar de las 120 columnas originales. Se mantiene
+            acotado para que el proyecto sea explicable: las variables cubren contexto temporal, tamaño de la empresa,
+            resultados, deuda, liquidez, operación, costos, impuestos, intereses y precio de mercado.
           </div>
         </section>
-        <section class="eda-summary-grid">
-          <article class="eda-summary-card">
-            <div class="eda-summary-label">Alcance</div>
-            <div class="eda-summary-value">{len(feature_columns)} variables</div>
-            <div class="eda-summary-copy">El modelo usa un subconjunto claro en lugar de las 120 columnas originales.</div>
-          </article>
-          <article class="eda-summary-card">
-            <div class="eda-summary-label">Criterio</div>
-            <div class="eda-summary-value">Explicable</div>
-            <div class="eda-summary-copy">Cada variable puede defenderse en lenguaje financiero durante la presentación.</div>
-          </article>
-          <article class="eda-summary-card">
-            <div class="eda-summary-label">Uso</div>
-            <div class="eda-summary-value">Entrada del modelo</div>
-            <div class="eda-summary-copy">Estas columnas son las que se cargan en la aplicación final para calcular el puntaje.</div>
-          </article>
-        </section>
+        <div class="section-header">Variables que más ayudan a predecir</div>
+        <section class="eda-summary-grid">{important_cards}</section>
+        <div class="hint-box">Estas importancias salen del Random Forest entrenado. Ayudan a explicar qué variables usa más el modelo para ordenar riesgo, pero no implican causalidad ni prueba directa de fraude.</div>
         <div class="section-header">Glosario de variables</div>
         <section class="feature-glossary-grid">{feature_cards}</section>
         """,
         unsafe_allow_html=True,
     )
+
+
+def _markdown_table_to_html(table_markdown: str) -> str:
+    lines = [
+        line.strip()
+        for line in table_markdown.strip().splitlines()
+        if line.strip().startswith("|")
+    ]
+    if len(lines) < 2:
+        return '<div class="hint-box">No se encontró tabla de resultado.</div>'
+
+    headers = [cell.strip() for cell in lines[0].strip("|").split("|")]
+    rows = []
+    for line in lines[2:]:
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if len(cells) < len(headers):
+            cells.extend([""] * (len(headers) - len(cells)))
+        rows.append(cells[: len(headers)])
+
+    header_html = "".join(f"<th>{_html(header)}</th>" for header in headers)
+    rows_html = "\n".join(
+        "<tr>" + "".join(f"<td>{_html(cell)}</td>" for cell in row) + "</tr>"
+        for row in rows
+    )
+    return f"""
+    <div class="sql-table-wrap">
+      <table class="sql-result-table">
+        <thead><tr>{header_html}</tr></thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+    </div>
+    """
+
+
+def _extract_sql_result_table(section_body: str) -> str:
+    if "**Resultado:**" not in section_body:
+        return ""
+
+    result_block = section_body.split("**Resultado:**", 1)[1]
+    table_lines: list[str] = []
+    for line in result_block.splitlines():
+        if line.strip().startswith("|"):
+            table_lines.append(line)
+        elif table_lines and line.strip():
+            break
+    return "\n".join(table_lines)
+
+
+def _render_sql_report(report_text: str) -> None:
+    sections = report_text.split("\n## ")
+    intro = sections[0].replace("# Resultados SQL de Fase 1", "").strip()
+    if intro:
+        st.markdown(intro)
+
+    for raw_section in sections[1:]:
+        title, _, body = raw_section.partition("\n")
+        query = ""
+        if "```sql" in body:
+            query_block = body.split("```sql", 1)[1]
+            query = query_block.split("```", 1)[0].strip()
+
+        table_html = _markdown_table_to_html(_extract_sql_result_table(body))
+        st.markdown(
+            f"""
+            <section class="sql-report-section">
+              <div class="sql-report-title">{_html(title.strip())}</div>
+              <div class="sql-report-label">Consulta</div>
+              <pre class="sql-code"><code>{_html(query)}</code></pre>
+              <div class="sql-report-label">Resultado</div>
+              {table_html}
+            </section>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def _render_sql_page() -> None:
@@ -3308,8 +3488,8 @@ def _render_sql_page() -> None:
           <div class="lead-kicker">Base de datos y SQL</div>
           <div class="lead-title">Consultas para validar y entender el dataset</div>
           <div class="lead-copy">
-            Los datos se cargan en SQLite para demostrar manejo de base de datos y obtener evidencia reproducible:
-            conteos, distribución de clases, evolución por año y comparaciones financieras básicas.
+            Los datos se cargan en SQLite para usar SQL directamente sobre el dataset. Abajo se muestran las consultas
+            aplicadas y su resultado: conteos, distribución de clases, evolución por año y comparaciones financieras básicas.
           </div>
         </section>
         <section class="story-grid">
@@ -3350,7 +3530,7 @@ def _render_sql_page() -> None:
 
     if SQL_REPORT_PATH.exists():
         with st.expander("Reporte SQL completo"):
-            st.code(SQL_REPORT_PATH.read_text(encoding="utf-8"), language="markdown")
+            _render_sql_report(SQL_REPORT_PATH.read_text(encoding="utf-8"))
     else:
         st.info("Aún no se generó el reporte SQL.")
 
@@ -3568,7 +3748,7 @@ def main() -> None:
         _render_eda_gallery()
 
     with tab_variables:
-        _render_variables_page(metadata)
+        _render_variables_page(metadata, model)
 
     with tab_sql:
         _render_sql_page()

@@ -4,11 +4,34 @@ Generado desde `data/fraud_financial.db` usando `scripts/run_sql_analysis.py`.
 
 ## Total de registros
 
+**Consulta:**
+
+```sql
+SELECT
+  COUNT(*) AS total_registros
+FROM financial_records;
+```
+
+**Resultado:**
+
 | total_registros |
 | --- |
 | 87974 |
 
 ## Conteo de fraude vs no fraude
+
+**Consulta:**
+
+```sql
+SELECT
+  CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+  COUNT(*) AS registros
+FROM financial_records
+GROUP BY etiqueta_fraude
+ORDER BY etiqueta_fraude;
+```
+
+**Resultado:**
 
 | etiqueta_fraude | registros |
 | --- | --- |
@@ -16,6 +39,21 @@ Generado desde `data/fraud_financial.db` usando `scripts/run_sql_analysis.py`.
 | 1 | 575 |
 
 ## Tasa de fraude por año fiscal
+
+**Consulta:**
+
+```sql
+SELECT
+  Financial_Year AS ejercicio_fiscal,
+  COUNT(*) AS total_registros,
+  SUM(CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END) AS casos_fraude,
+  ROUND(AVG(CASE WHEN AAER_ID IS NOT NULL THEN 1.0 ELSE 0.0 END) * 100, 4) AS tasa_fraude_porcentaje
+FROM financial_records
+GROUP BY Financial_Year
+ORDER BY Financial_Year;
+```
+
+**Resultado:**
 
 | ejercicio_fiscal | total_registros | casos_fraude | tasa_fraude_porcentaje |
 | --- | --- | --- | --- |
@@ -46,6 +84,24 @@ Generado desde `data/fraud_financial.db` usando `scripts/run_sql_analysis.py`.
 
 ## Valores financieros clave promedio por etiqueta de fraude
 
+**Consulta:**
+
+```sql
+SELECT
+  CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+  COUNT(*) AS registros,
+  ROUND(AVG(sale), 2) AS promedio_ventas,
+  ROUND(AVG(ni), 2) AS promedio_ingreso_neto,
+  ROUND(AVG(at), 2) AS promedio_activos,
+  ROUND(AVG(lt), 2) AS promedio_pasivos,
+  ROUND(AVG(che), 2) AS promedio_efectivo
+FROM financial_records
+GROUP BY etiqueta_fraude
+ORDER BY etiqueta_fraude;
+```
+
+**Resultado:**
+
 | etiqueta_fraude | registros | promedio_ventas | promedio_ingreso_neto | promedio_activos | promedio_pasivos | promedio_efectivo |
 | --- | --- | --- | --- | --- | --- | --- |
 | 0.0 | 87399.0 | 7739.0 | 428.34 | 20335.17 | 15512.79 | 4433.98 |
@@ -53,12 +109,44 @@ Generado desde `data/fraud_financial.db` usando `scripts/run_sql_analysis.py`.
 
 ## Ratio cuentas por cobrar / ventas por etiqueta de fraude
 
+**Consulta:**
+
+```sql
+SELECT
+  CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+  COUNT(*) AS registros,
+  ROUND(AVG(rect), 2) AS promedio_cuentas_por_cobrar,
+  ROUND(AVG(sale), 2) AS promedio_ventas,
+  ROUND(AVG(rect / NULLIF(sale, 0)), 4) AS razon_cuentas_por_cobrar_ventas
+FROM financial_records
+GROUP BY etiqueta_fraude
+ORDER BY etiqueta_fraude;
+```
+
+**Resultado:**
+
 | etiqueta_fraude | registros | promedio_cuentas_por_cobrar | promedio_ventas | razon_cuentas_por_cobrar_ventas |
 | --- | --- | --- | --- | --- |
 | 0.0 | 87399.0 | 1413.32 | 7739.0 | 0.2931 |
 | 1.0 | 575.0 | 3862.2 | 4679.09 | 0.9426 |
 
 ## Ratio pasivos / activos por etiqueta de fraude
+
+**Consulta:**
+
+```sql
+SELECT
+  CASE WHEN AAER_ID IS NOT NULL THEN 1 ELSE 0 END AS etiqueta_fraude,
+  COUNT(*) AS registros,
+  ROUND(AVG(lt), 2) AS promedio_pasivos,
+  ROUND(AVG(at), 2) AS promedio_activos,
+  ROUND(AVG(lt / NULLIF(at, 0)), 4) AS razon_pasivos_activos
+FROM financial_records
+GROUP BY etiqueta_fraude
+ORDER BY etiqueta_fraude;
+```
+
+**Resultado:**
 
 | etiqueta_fraude | registros | promedio_pasivos | promedio_activos | razon_pasivos_activos |
 | --- | --- | --- | --- | --- |
