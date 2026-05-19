@@ -8,11 +8,16 @@ import logging
 from pathlib import Path
 
 import joblib
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import streamlit as st
+from sklearn.metrics import precision_recall_curve
+from sklearn.model_selection import train_test_split
 
 
 ROOT_DIR = Path(__file__).resolve().parent
+DATA_PATH = ROOT_DIR / "data" / "Cleaned_data_1995_2018.csv"
 MODEL_PATH = ROOT_DIR / "models" / "fraud_risk_model.joblib"
 METADATA_PATH = ROOT_DIR / "models" / "model_metadata.json"
 REPORTS_DIR = ROOT_DIR / "reports"
@@ -143,6 +148,58 @@ def load_model_and_metadata() -> tuple[object, dict]:
 
     model = joblib.load(MODEL_PATH)
     return model, metadata
+
+
+@st.cache_data(show_spinner=False)
+def _load_threshold_curve_data(
+    data_path: str,
+    model_path: str,
+    model_sha256: str,
+    feature_columns: tuple[str, ...],
+) -> pd.DataFrame:
+    _ = model_sha256  # invalida la cache si cambia el artefacto del modelo
+    data_file = Path(data_path)
+    model_file = Path(model_path)
+    if not data_file.exists() or not model_file.exists() or not feature_columns:
+        return pd.DataFrame()
+
+    raw_df = pd.read_csv(data_file)
+    required_columns = set(feature_columns) | {"AAER_ID"}
+    if missing_columns := sorted(required_columns - set(raw_df.columns)):
+        LOGGER.warning("No se puede construir curva de threshold. Faltan columnas: %s", missing_columns)
+        return pd.DataFrame()
+
+    x = raw_df[list(feature_columns)].copy()
+    if "Financial_Year" in x.columns:
+        x["Financial_Year"] = (
+            x["Financial_Year"].astype(str).str.replace("FY", "", regex=False).astype(int)
+        )
+    y = raw_df["AAER_ID"].notna().astype(int)
+    _, x_test, _, y_test = train_test_split(
+        x,
+        y,
+        test_size=0.20,
+        random_state=42,
+        stratify=y,
+    )
+
+    model = joblib.load(model_file)
+    scores = model.predict_proba(x_test)[:, 1]
+    precision, recall, thresholds = precision_recall_curve(y_test, scores)
+    curve_df = pd.DataFrame(
+        {
+            "threshold": thresholds,
+            "precision": precision[:-1],
+            "recall": recall[:-1],
+        }
+    )
+    denominator = curve_df["precision"] + curve_df["recall"]
+    curve_df["f1"] = np.where(
+        denominator > 0,
+        2 * curve_df["precision"] * curve_df["recall"] / denominator,
+        0,
+    )
+    return curve_df.sort_values("threshold").reset_index(drop=True)
 
 
 def _verify_model_checksum(expected_sha256: str) -> None:
@@ -2815,6 +2872,53 @@ def _risk_card_class(level: str) -> str:
     return {"Bajo": "low", "Medio": "medium", "Alto": "high"}.get(level, "")
 
 
+def _render_threshold_curve(metadata: dict) -> None:
+    feature_columns = tuple(metadata.get("feature_columns", []))
+    curve_df = _load_threshold_curve_data(
+        str(DATA_PATH),
+        str(MODEL_PATH),
+        str(metadata.get("model_sha256", "")),
+        feature_columns,
+    )
+    if curve_df.empty:
+        st.info("No se pudo construir el gráfico de punto de corte con los datos locales.")
+        return
+
+    best_row = curve_df.loc[curve_df["f1"].idxmax()]
+    best_threshold = float(best_row["threshold"])
+
+    st.markdown('<div class="section-header">Punto de corte según F1</div>', unsafe_allow_html=True)
+    fig, ax = plt.subplots(figsize=(9.2, 5.0), dpi=120)
+    ax.plot(curve_df["threshold"], curve_df["precision"], label="Precision", color="#4c78a8", linewidth=1.8)
+    ax.plot(curve_df["threshold"], curve_df["recall"], label="Recall", color="#f58518", linewidth=1.8)
+    ax.plot(curve_df["threshold"], curve_df["f1"], label="F1", color="#54a24b", linewidth=2.2)
+    ax.axvline(
+        best_threshold,
+        color="#ff4f4f",
+        linestyle="--",
+        linewidth=1.6,
+        label=f"Mejor F1: {best_threshold:.3f}",
+    )
+    ax.set_title("Precision, recall y F1 segun punto de corte")
+    ax.set_xlabel("Threshold / punto de corte")
+    ax.set_ylabel("Metrica")
+    ax.grid(True, alpha=0.25)
+    ax.legend(loc="upper right")
+    fig.tight_layout()
+    st.pyplot(fig, width="stretch")
+    plt.close(fig)
+    st.markdown(
+        """
+        <div class="hint-box">
+          La línea roja marca el punto de corte donde F1 alcanza su mejor equilibrio.
+          A la izquierda se capturan más casos, pero con más alertas; a la derecha se exige más puntaje,
+          baja el recall y quedan menos registros para revisión.
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _render_metric_cards(metadata: dict) -> None:
     positive_ratio = float(metadata.get("dataset_positive_ratio", 0.0))
     comparison_metrics = metadata.get("model_comparison_metrics", {})
@@ -2903,6 +3007,7 @@ def _render_metric_cards(metadata: dict) -> None:
                 }
             )
         st.dataframe(pd.DataFrame(compare_rows), width="stretch", hide_index=True)
+        _render_threshold_curve(metadata)
 
     if test_metrics:
         st.markdown(
